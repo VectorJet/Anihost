@@ -1,79 +1,45 @@
 'use client';
 
-import { searchAnimeWithFilters, getAnimeAboutInfo } from "@/lib/api";
+import { getGenreAnime } from "@/lib/api";
 import Image from "next/image";
 import Link from "next/link";
-import { SearchResultAnime, SearchFilters } from "@/types/anime";
+import { SearchResultAnime } from "@/types/anime";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppleSpotlight } from "@/components/ui/apple-spotlight";
 import React, { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 
-interface SearchPageProps {
-  searchParams: Promise<SearchFilters>;
+interface GenrePageProps {
+  params: Promise<{ name: string }>;
 }
 
-export default function SearchPage(props: SearchPageProps) {
+export default function GenrePage(props: GenrePageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [params, setParams] = useState<{ name: string } | null>(null);
   const [data, setData] = useState<any>(null);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    props.params.then(setParams);
+  }, [props.params]);
+
+  useEffect(() => {
+    if (!params) return;
+
     const fetchData = async () => {
       setIsLoading(true);
-      
-      const filters: SearchFilters = {
-        q: searchParams.get("q") || undefined,
-        page: Number(searchParams.get("page")) || 1,
-        type: searchParams.get("type") || undefined,
-        status: searchParams.get("status") || undefined,
-        rated: searchParams.get("rated") || undefined,
-        score: searchParams.get("score") || undefined,
-        season: searchParams.get("season") || undefined,
-        language: searchParams.get("language") || undefined,
-        start_date: searchParams.get("start_date") || undefined,
-        end_date: searchParams.get("end_date") || undefined,
-        sort: searchParams.get("sort") || undefined,
-        genres: searchParams.get("genres") || undefined,
-      };
-
-      if (filters.q) {
-        const res = await searchAnimeWithFilters(filters);
-        
-        // Strict client-side verification for genres if specified
-        if (filters.genres && res.animes.length > 0) {
-           const slugify = (text: string) => text.toLowerCase().replace(/ /g, '-');
-           const targetGenre = filters.genres.toLowerCase();
-           
-           // Verify results in parallel (limit to first page batch)
-           const verifiedAnimes = await Promise.all(
-             res.animes.map(async (anime: SearchResultAnime) => {
-               const info = await getAnimeAboutInfo(anime.id);
-               if (!info || !info.anime || !info.anime.moreInfo || !info.anime.moreInfo.genres) return null;
-               
-               const genres = info.anime.moreInfo.genres as string[];
-               const hasGenre = genres.some(g => slugify(g) === targetGenre || g.toLowerCase() === targetGenre);
-               
-               return hasGenre ? anime : null;
-             })
-           );
-           
-           res.animes = verifiedAnimes.filter((a: SearchResultAnime | null) => a !== null);
-        }
-        
-        setData(res);
-      } else {
-        setData({ animes: [], totalPages: 1, currentPage: 1, hasNextPage: false });
-      }
+      const page = Number(searchParams.get("page")) || 1;
+      const res = await getGenreAnime(params.name, page);
+      setData(res);
       setIsLoading(false);
     };
 
     fetchData();
-  }, [searchParams]);
+  }, [params, searchParams]);
 
-  if (isLoading || !data) {
+  if (!params || isLoading || !data) {
     return (
       <div className="min-h-screen bg-background container mx-auto px-4 py-8 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -81,55 +47,32 @@ export default function SearchPage(props: SearchPageProps) {
     );
   }
 
-  const query = searchParams.get("q") || "";
-  
-  // Apply strict client-side filtering to prevent "leaks"
-  const results = data.animes.filter((anime: SearchResultAnime) => {
-    // 1. Filter by type if specified
-    const typeFilter = searchParams.get("type");
-    if (typeFilter && anime.type.toLowerCase() !== typeFilter.toLowerCase()) {
-      return false;
-    }
-    
-    // 2. Filter by language (sub/dub) if specified
-    const langFilter = searchParams.get("language");
-    if (langFilter === 'sub' && (!anime.episodes || anime.episodes.sub === 0)) {
-      return false;
-    }
-    if (langFilter === 'dub' && (!anime.episodes || anime.episodes.dub === 0)) {
-      return false;
-    }
-    
-    return true;
-  });
+  const genre = params.name;
+  const results = data.animes || [];
+
+  const genreTitle = genre
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
   const handleSearch = (value: string) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set("q", value);
-    newParams.set("page", "1");
-    router.push(`/search?${newParams.toString()}`);
-  };
-
-  const getPaginationUrl = (page: number) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set("page", page.toString());
-    return `/search?${newParams.toString()}`;
+    const queryParams = new URLSearchParams();
+    queryParams.append("q", value);
+    queryParams.append("genres", genre);
+    router.push(`/search?${queryParams.toString()}`);
   };
 
   return (
     <div className="min-h-screen bg-background container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">
-        Search Results for "{query}"
-        {searchParams.get("genres") && (
-          <span className="text-lg font-normal text-muted-foreground ml-2">
-            in genre: {searchParams.get("genres")}
-          </span>
-        )}
-      </h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">
+          {data.genreName || genreTitle} Genre
+        </h1>
+      </div>
 
       {results.length === 0 ? (
         <div className="text-center text-muted-foreground py-20">
-          {query ? "No results found." : "Please enter a search term."}
+          No anime found for this genre.
         </div>
       ) : (
         <>
@@ -182,7 +125,7 @@ export default function SearchPage(props: SearchPageProps) {
             <div className="flex justify-center items-center gap-4 mt-12">
               {data.currentPage > 1 ? (
                 <Link
-                  href={getPaginationUrl(data.currentPage - 1)}
+                  href={`/genre/${genre}?page=${data.currentPage - 1}`}
                   className="w-10 h-10 rounded-full flex items-center justify-center bg-card hover:bg-accent transition-colors border shadow-sm"
                   aria-label="Previous page"
                 >
@@ -203,7 +146,7 @@ export default function SearchPage(props: SearchPageProps) {
 
               {data.hasNextPage ? (
                 <Link
-                  href={getPaginationUrl(data.currentPage + 1)}
+                  href={`/genre/${genre}?page=${data.currentPage + 1}`}
                   className="w-10 h-10 rounded-full flex items-center justify-center bg-card hover:bg-accent transition-colors border shadow-sm"
                   aria-label="Next page"
                 >
@@ -222,7 +165,8 @@ export default function SearchPage(props: SearchPageProps) {
       <AppleSpotlight 
         isOpen={isSpotlightOpen} 
         handleClose={() => setIsSpotlightOpen(false)}
-        placeholder="Search again..."
+        placeholder={`Search in ${data.genreName || genreTitle}...`}
+        initialFilters={{ genres: genre }}
         onSearch={handleSearch}
       />
     </div>

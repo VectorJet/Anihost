@@ -1,8 +1,9 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { getSearchSuggestions } from '@/lib/api'; // Import API
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { getSearchSuggestions, getAnimeAboutInfo, searchAnimeWithFilters } from '@/lib/api'; 
+import { useRouter } from 'next/navigation'; 
+import { SearchFilters, SearchResultAnime } from '@/types/anime';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
-// Removed Shortcut interface and components
+const slugify = (text: string) => text.toLowerCase().replace(/ /g, '-');
 
 interface SearchResult {
   icon: React.ReactNode;
@@ -37,21 +38,6 @@ const SVGFilter = () => {
         <feBlend in="SourceGraphic" in2="blob" />
       </filter>
     </svg>
-  );
-};
-
-interface ShortcutButtonProps {
-  icon: React.ReactNode;
-  link: string;
-}
-
-const ShortcutButton = ({ icon, link }: ShortcutButtonProps) => {
-  return (
-    <a href={link} target="_blank">
-      <div className="rounded-full cursor-pointer hover:shadow-lg opacity-30 hover:opacity-100 transition-[opacity,shadow] duration-200">
-        <div className="size-16 aspect-square flex items-center justify-center">{icon}</div>
-      </div>
-    </a>
   );
 };
 
@@ -102,7 +88,6 @@ const SpotlightInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Focus the input when the component mounts
     inputRef.current?.focus();
   }, []);
 
@@ -142,7 +127,7 @@ interface SearchResultCardProps extends SearchResult {
 
 const SearchResultCard = ({ icon, label, description, link, isLast }: SearchResultCardProps) => {
   return (
-    <a href={link} target="_blank" className="overflow-hidden w-full group/card">
+    <a href={link} className="overflow-hidden w-full group/card">
       <div
         className={cn(
           'flex items-center text-black dark:text-white justify-start hover:bg-white dark:hover:bg-neutral-700 gap-3 py-2 px-2 rounded-xl hover:shadow-md w-full',
@@ -153,8 +138,8 @@ const SearchResultCard = ({ icon, label, description, link, isLast }: SearchResu
           {icon}
         </div>
         <div className="flex flex-col">
-          <p className="font-medium">{label}</p>
-          <p className="text-xs opacity-50">{description}</p>
+          <p className="font-medium truncate max-w-[200px] md:max-w-md">{label}</p>
+          <p className="text-xs opacity-50 truncate max-w-[200px] md:max-w-md">{description}</p>
         </div>
         <div className="flex-1 flex items-center justify-end opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
           <ChevronRight className="size-6" />
@@ -167,15 +152,21 @@ const SearchResultCard = ({ icon, label, description, link, isLast }: SearchResu
 interface SearchResultsContainerProps {
   searchResults: SearchResult[];
   onHover: (index: number | null) => void;
+  filterLabel?: string;
 }
 
-const SearchResultsContainer = ({ searchResults, onHover }: SearchResultsContainerProps) => {
+const SearchResultsContainer = ({ searchResults, onHover, filterLabel }: SearchResultsContainerProps) => {
   return (
     <motion.div
       layout
       onMouseLeave={() => onHover(null)}
       className="px-2 border-t flex flex-col bg-neutral-100 dark:bg-neutral-800 max-h-60 md:max-h-96 overflow-y-auto w-full py-2"
     >
+      {filterLabel && searchResults.length > 0 && (
+        <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-neutral-200/50 dark:bg-neutral-700/50 rounded-md mb-2 mx-1">
+          Searching in: {filterLabel}
+        </div>
+      )}
       {searchResults.map((result, index) => {
         return (
           <motion.div
@@ -207,11 +198,17 @@ const SearchResultsContainer = ({ searchResults, onHover }: SearchResultsContain
 interface AppleSpotlightProps {
   isOpen?: boolean;
   handleClose?: () => void;
+  placeholder?: string;
+  initialFilters?: SearchFilters;
+  onSearch?: (value: string) => void;
 }
 
 const AppleSpotlight = ({
   isOpen = true,
-  handleClose = () => {}
+  handleClose = () => {},
+  placeholder = 'Search',
+  initialFilters = {},
+  onSearch
 }: AppleSpotlightProps) => {
   const router = useRouter();
   const [hoveredSearchResult, setHoveredSearchResult] = useState<number | null>(null);
@@ -224,10 +221,29 @@ const AppleSpotlight = ({
 
   const handleSearchSubmit = (value: string) => {
     if (value.trim()) {
-      router.push(`/search?q=${encodeURIComponent(value)}`);
+      if (onSearch) {
+        onSearch(value);
+      } else {
+        const params = new URLSearchParams();
+        params.append('q', value);
+        Object.entries(initialFilters).forEach(([key, val]) => {
+          if (val !== undefined && key !== 'q') {
+            params.append(key, val.toString());
+          }
+        });
+        router.push(`/search?${params.toString()}`);
+      }
       handleClose();
     }
   };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchValue('');
+      setSearchResults([]);
+      setHoveredSearchResult(null);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -237,17 +253,41 @@ const AppleSpotlight = ({
       }
 
       try {
-        const suggestions = await getSearchSuggestions(searchValue);
-        const mappedResults = suggestions.map((item) => ({
-          icon: (
-            <div className="relative w-full h-full overflow-hidden rounded">
-              <img src={item.poster} alt={item.name} className="w-full h-full object-cover" />
-            </div>
-          ),
-          label: item.name,
-          description: item.moreInfo.join(' • '),
-          link: `/anime/${item.id}`
-        }));
+        const hasFilters = Object.keys(initialFilters).length > 0;
+        let mappedResults: SearchResult[] = [];
+
+        if (hasFilters) {
+          const response = await searchAnimeWithFilters({ 
+            q: searchValue, 
+            ...initialFilters 
+          });
+          
+          if (response && response.animes) {
+            mappedResults = response.animes.slice(0, 5).map((item: SearchResultAnime) => ({
+              icon: (
+                <div className="relative w-full h-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700">
+                  <img src={item.poster} alt={item.name} className="w-full h-full object-cover" />
+                </div>
+              ),
+              label: item.name,
+              description: [item.type, item.duration, item.rating].filter(Boolean).join(' • '),
+              link: `/anime/${item.id}`
+            }));
+          }
+        } else {
+          const suggestions = await getSearchSuggestions(searchValue);
+          mappedResults = suggestions.map((item) => ({
+            icon: (
+              <div className="relative w-full h-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700">
+                <img src={item.poster} alt={item.name} className="w-full h-full object-cover" />
+              </div>
+            ),
+            label: item.name,
+            description: item.moreInfo.join(' • '),
+            link: `/anime/${item.id}`
+          }));
+        }
+
         setSearchResults(mappedResults);
       } catch (error) {
         console.error("Failed to fetch search suggestions", error);
@@ -260,7 +300,6 @@ const AppleSpotlight = ({
 
   return (
     <AnimatePresence mode="wait">
-
       {isOpen && (
         <motion.div
           initial={{
@@ -289,7 +328,7 @@ const AppleSpotlight = ({
             damping: 50,
             type: 'spring'
           }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start pt-24 md:justify-center md:pt-0"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start pt-24 md:justify-center md:pt-0 bg-black/20 backdrop-blur-sm"
           onClick={handleClose}
         >
           <SVGFilter />
@@ -323,7 +362,7 @@ const AppleSpotlight = ({
                   placeholder={
                     hoveredSearchResult !== null
                       ? searchResults[hoveredSearchResult].label
-                      : 'Search'
+                      : placeholder
                   }
                   placeholderClassName={
                     hoveredSearchResult !== null ? 'text-black bg-white' : 'text-gray-500'
@@ -338,6 +377,7 @@ const AppleSpotlight = ({
                   <SearchResultsContainer
                     searchResults={searchResults}
                     onHover={setHoveredSearchResult}
+                    filterLabel={placeholder.replace('Search in ', '').replace('...', '')}
                   />
                 )}
               </motion.div>

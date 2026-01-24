@@ -72,6 +72,21 @@ export interface SearchSuggestion {
   moreInfo: string[];
 }
 
+export interface SearchFilters {
+  q?: string;
+  page?: number;
+  type?: string;
+  status?: string;
+  rated?: string;
+  score?: string;
+  season?: string;
+  language?: string;
+  start_date?: string;
+  end_date?: string;
+  sort?: string;
+  genres?: string;
+}
+
 export interface HomePageData {
   genres: string[];
   latestEpisodeAnimes: AnimeBasic[];

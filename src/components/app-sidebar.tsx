@@ -15,12 +15,14 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { ProfileMenu } from "@/components/profile-menu"
+import Link from "next/link"
 import { 
   Home, 
   Captions, 
   Mic, 
   Flame, 
   Film, 
+  Gamepad2,
   Tv, 
   Disc, 
   MonitorPlay, 
@@ -41,6 +43,7 @@ const mainMenuItems = [
   { title: "OVAs", url: "/ova", icon: Disc },
   { title: "ONAs", url: "/ona", icon: MonitorPlay },
   { title: "Specials", url: "/special", icon: Star },
+  { title: "Game", url: "/genre/game", icon: Gamepad2 },
 ]
 
 interface AppSidebarProps {
@@ -65,10 +68,10 @@ export function AppSidebar({ genres = [] }: AppSidebarProps) {
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
+                    <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -84,13 +87,13 @@ export function AppSidebar({ genres = [] }: AppSidebarProps) {
              <SidebarMenu>
               <div className="grid grid-cols-2 gap-2 px-2">
                 {initialGenres.map((genre: string) => (
-                   <a 
+                   <Link 
                      key={genre} 
                      href={`/genre/${genre.toLowerCase().replace(/ /g, '-')}`}
                      className="text-xs text-muted-foreground hover:text-foreground transition-colors py-1 truncate"
                    >
                      {genre}
-                   </a>
+                   </Link>
                 ))}
                 <AnimatePresence>
                   {isExpanded && (
@@ -102,13 +105,13 @@ export function AppSidebar({ genres = [] }: AppSidebarProps) {
                       className="col-span-2 grid grid-cols-2 gap-2 overflow-hidden"
                     >
                       {additionalGenres.map((genre: string) => (
-                        <a 
+                        <Link 
                           key={genre} 
                           href={`/genre/${genre.toLowerCase().replace(/ /g, '-')}`}
                           className="text-xs text-muted-foreground hover:text-foreground transition-colors py-1 truncate"
                         >
                           {genre}
-                        </a>
+                        </Link>
                       ))}
                     </motion.div>
                   )}
