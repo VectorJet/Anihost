@@ -19,16 +19,23 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+/refs/
+/refs/hianime-API
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+debug_screenshot.png
+debug_stream.py
+master.m3u8
+test-player.html
 
 # env files (can opt-in for committing if needed)
 .env*

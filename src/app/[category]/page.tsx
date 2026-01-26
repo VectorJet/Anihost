@@ -3,7 +3,7 @@
 import { getCategoryAnime } from "@/lib/api";
 import Image from "next/image";
 import Link from "next/link";
-import { SearchResultAnime } from "@/types/anime";
+import { SearchResultAnime, SearchFilters } from "@/types/anime";
 import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppleSpotlight } from "@/components/ui/apple-spotlight";

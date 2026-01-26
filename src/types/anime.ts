@@ -35,6 +35,7 @@ export interface TopAiringAnime {
   name: string;
   jname: string;
   poster: string;
+  episodes: AnimeEpisodes;
 }
 
 export interface TrendingAnime {
@@ -52,6 +53,15 @@ export interface UpcomingAnime {
   type: string;
   rating: string;
   episodes: AnimeEpisodes;
+}
+
+export interface ScheduledAnime {
+  id: string;
+  time: string;
+  name: string;
+  jname: string;
+  airingTimestamp: number;
+  secondsUntilAiring: number;
 }
 
 export interface SearchResultAnime {
@@ -107,4 +117,36 @@ export interface HomePageData {
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
+}
+
+export interface AnimeAboutInfo {
+  anime: {
+    info: {
+      id: string;
+      name: string;
+      poster: string;
+      description: string;
+      stats: {
+        rating: string;
+        quality: string;
+        episodes: {
+          sub: number;
+          dub: number;
+        };
+        type: string;
+        duration: string;
+      };
+    };
+    moreInfo: Record<string, string | string[]>;
+  };
+  seasons: {
+    id: string;
+    name: string;
+    title: string;
+    poster: string;
+    isCurrent: boolean;
+  }[];
+  mostPopularAnimes: AnimeBasic[];
+  relatedAnimes: AnimeBasic[];
+  recommendedAnimes: AnimeBasic[];
 }

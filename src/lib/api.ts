@@ -1,15 +1,41 @@
 'use server';
 
-import { SearchResultAnime, SearchSuggestion, SearchFilters } from "@/types/anime";
+import { SearchResultAnime, SearchSuggestion, SearchFilters, AnimeBasic, HomePageData, AnimeAboutInfo } from "@/types/anime";
 
-const API_BASE_URL = "http://localhost:4000/api/v2/hianime";
+const API_BASE_URL = "http://localhost:4001/api/v1";
+
+// Helper to map API Anime response to AnimeBasic
+const mapToAnimeBasic = (item: any): AnimeBasic => ({
+  id: item.id,
+  name: item.title,
+  poster: item.poster,
+  type: item.type,
+  episodes: item.episodes || { sub: 0, dub: 0 }
+});
+
+// Helper to map API Top10 response to Top10Anime
+const mapToTop10Anime = (item: any, index: number) => ({
+  id: item.id,
+  name: item.title,
+  poster: item.poster,
+  rank: item.rank ?? index + 1,
+  episodes: item.episodes || { sub: 0, dub: 0 }
+});
 
 export async function getSearchSuggestions(query: string): Promise<SearchSuggestion[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/search/suggestion?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`${API_BASE_URL}/suggestion?keyword=${encodeURIComponent(query)}`);
     if (!res.ok) throw new Error('Failed to fetch suggestions');
     const json = await res.json();
-    return json.data.suggestions;
+    
+    // API V1 returns { status: true, data: [...] }
+    return (json.data || []).map((item: any) => ({
+      id: item.id,
+      name: item.title,
+      poster: item.poster,
+      jname: item.alternativeTitle,
+      moreInfo: [item.type, item.duration].filter(Boolean)
+    }));
   } catch (error) {
     console.error("Error fetching suggestions:", error);
     return [];
@@ -23,16 +49,31 @@ export async function searchAnime(query: string, page: number = 1) {
 export async function searchAnimeWithFilters(filters: SearchFilters) {
   try {
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.append(key, value.toString());
-      }
-    });
+    if (filters.q) params.append('keyword', filters.q); // Map q -> keyword
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.type) params.append('type', filters.type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.rated) params.append('rated', filters.rated);
+    if (filters.score) params.append('score', filters.score);
+    if (filters.season) params.append('season', filters.season);
+    if (filters.language) params.append('language', filters.language);
+    if (filters.sort) params.append('sort', filters.sort);
+    if (filters.genres) params.append('genres', filters.genres);
 
-    const res = await fetch(`${API_BASE_URL}/search?${params.toString()}`);
+    // Use /filter endpoint which supports keyword and filters
+    const res = await fetch(`${API_BASE_URL}/filter?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch search results');
     const json = await res.json();
-    return json.data;
+    
+    // New structure: { data: { pageInfo: {...}, response: [...] } }
+    const { pageInfo, response } = json.data;
+    
+    return {
+      animes: (response || []).map(mapToAnimeBasic),
+      totalPages: pageInfo?.totalPages || 1,
+      currentPage: pageInfo?.currentPage || 1,
+      hasNextPage: pageInfo?.hasNextPage || false
+    };
   } catch (error) {
     console.error("Error fetching search results with filters:", error);
     return {
@@ -46,10 +87,22 @@ export async function searchAnimeWithFilters(filters: SearchFilters) {
 
 export async function getCategoryAnime(category: string, page: number = 1) {
   try {
-    const res = await fetch(`${API_BASE_URL}/category/${category}?page=${page}`);
+    // New API uses /{query} for top-airing, movie, etc.
+    // Assuming 'category' maps to one of these valid endpoints or filters
+    // If it's a type (tv, movie), it works on /{type} too
+    const res = await fetch(`${API_BASE_URL}/${category}?page=${page}`);
     if (!res.ok) throw new Error('Failed to fetch category results');
     const json = await res.json();
-    return json.data;
+    
+    const { pageInfo, response } = json.data;
+
+    return {
+      animes: (response || []).map(mapToAnimeBasic),
+      totalPages: pageInfo?.totalPages || 1,
+      currentPage: pageInfo?.currentPage || 1,
+      hasNextPage: pageInfo?.hasNextPage || false,
+      category: category
+    };
   } catch (error) {
     console.error(`Error fetching category ${category}:`, error);
     return {
@@ -67,7 +120,16 @@ export async function getGenreAnime(genre: string, page: number = 1) {
     const res = await fetch(`${API_BASE_URL}/genre/${genre}?page=${page}`);
     if (!res.ok) throw new Error('Failed to fetch genre results');
     const json = await res.json();
-    return json.data;
+    
+    const { pageInfo, response } = json.data;
+
+    return {
+      animes: (response || []).map(mapToAnimeBasic),
+      totalPages: pageInfo?.totalPages || 1,
+      currentPage: pageInfo?.currentPage || 1,
+      hasNextPage: pageInfo?.hasNextPage || false,
+      genreName: genre
+    };
   } catch (error) {
     console.error(`Error fetching genre ${genre}:`, error);
     return {
@@ -80,19 +142,130 @@ export async function getGenreAnime(genre: string, page: number = 1) {
   }
 }
 
-export async function getAnimeAboutInfo(animeId: string) {
+export async function getAnimeAboutInfo(animeId: string): Promise<AnimeAboutInfo | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/anime/${animeId}`);
+    const res = await fetch(`${API_BASE_URL}/anime/${animeId}`, {
+      next: { revalidate: 3600 }
+    });
     if (!res.ok) throw new Error('Failed to fetch anime info');
     const json = await res.json();
-    return json.data;
+    const data = json.data;
+
+    // Map new flat structure to nested AnimeAboutInfo
+    return {
+      anime: {
+        info: {
+          id: data.id,
+          name: data.title,
+          poster: data.poster,
+          description: data.synopsis,
+          stats: {
+            rating: data.rating,
+            quality: data.quality || "HD", // Fallback if missing
+            episodes: data.episodes || { sub: 0, dub: 0 },
+            type: data.type,
+            duration: data.duration
+          }
+        },
+        moreInfo: {
+          japanese: data.title, // or alternativeTitle?
+          aired: typeof data.aired === 'string' ? data.aired : `${data.aired?.from} to ${data.aired?.to}`,
+          premiered: data.premiered,
+          duration: data.duration,
+          status: data.status,
+          malscore: data.MAL_score,
+          genres: data.genres,
+          studios: data.studios,
+          producers: data.producers
+        }
+      },
+      seasons: (data.moreSeasons || []).map((s: any) => ({
+        id: s.id,
+        name: s.title,
+        title: s.title,
+        poster: s.poster,
+        isCurrent: s.isCurrent // Check if this field exists in new API
+      })),
+      mostPopularAnimes: (data.mostPopular || []).map(mapToAnimeBasic),
+      relatedAnimes: (data.related || []).map(mapToAnimeBasic),
+      recommendedAnimes: (data.recommended || []).map(mapToAnimeBasic)
+    };
   } catch (error) {
     console.error(`Error fetching anime info for ${animeId}:`, error);
     return null;
   }
 }
 
-export async function getHomePageData() {
+export async function getAnimeEpisodes(animeId: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/episodes/${animeId}`, {
+      next: { revalidate: 300 }
+    });
+    if (!res.ok) throw new Error('Failed to fetch episodes');
+    const json = await res.json();
+    const episodes = (json.data || []).map((ep: any) => ({
+      number: ep.episodeNumber,
+      title: ep.title,
+      episodeId: ep.id,
+      isFiller: ep.isFiller
+    }));
+    return { episodes, totalEpisodes: episodes.length };
+  } catch (error) {
+    console.error(`Error fetching episodes for ${animeId}:`, error);
+    return { episodes: [], totalEpisodes: 0 };
+  }
+}
+
+export async function getAnimeEpisodeServers(episodeId: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/servers/${encodeURIComponent(episodeId)}`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch servers');
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error(`Error fetching servers for ${episodeId}:`, error);
+    return { sub: [], dub: [], raw: [] };
+  }
+}
+
+export async function getEpisodeSources(episodeId: string, server: string = "megacloud", category: string = "sub") {
+  try {
+    const res = await fetch(`${API_BASE_URL}/stream?id=${encodeURIComponent(episodeId)}&server=${server}&type=${category}`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch sources');
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error(`Error fetching sources for ${episodeId}:`, error);
+    return null;
+  }
+}
+
+export async function getEstimatedSchedule(date: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/schedule?date=${date}`);
+    if (!res.ok) throw new Error('Failed to fetch schedule');
+    const json = await res.json();
+    
+    // New response: { data: { meta, response: [...] } }
+    return (json.data.response || []).map((item: any) => ({
+      id: item.id,
+      time: item.time,
+      name: item.title,
+      jname: item.alternativeTitle,
+      airingTimestamp: 0, // Not provided in new API response sample?
+      secondsUntilAiring: 0 // Not provided?
+    }));
+  } catch (error) {
+    console.error(`Error fetching schedule for ${date}:`, error);
+    return [];
+  }
+}
+
+export async function getHomePageData(): Promise<HomePageData> {
   try {
     const res = await fetch(`${API_BASE_URL}/home`, { 
       next: { revalidate: 3600 },
@@ -105,7 +278,46 @@ export async function getHomePageData() {
     }
     
     const json = await res.json();
-    return json.data;
+    const data = json.data;
+
+    return {
+      genres: data.genres || [],
+      latestEpisodeAnimes: (data.latestEpisode || []).map(mapToAnimeBasic),
+      spotlightAnimes: (data.spotlight || []).map((item: any) => ({
+        id: item.id,
+        name: item.title,
+        jname: item.alternativeTitle,
+        poster: item.poster,
+        description: item.synopsis,
+        rank: item.rank,
+        otherInfo: [item.type, item.duration],
+        episodes: item.episodes || { sub: 0, dub: 0 }
+      })),
+      top10Animes: {
+        today: (data.topTen?.today || []).map(mapToTop10Anime),
+        week: (data.topTen?.week || []).map(mapToTop10Anime),
+        month: (data.topTen?.month || []).map(mapToTop10Anime)
+      },
+      topAiringAnimes: (data.topAiring || []).map(mapToAnimeBasic),
+      topUpcomingAnimes: (data.topUpcoming || []).map((item: any) => ({
+        id: item.id,
+        name: item.title,
+        poster: item.poster,
+        duration: item.duration,
+        type: item.type,
+        rating: item.rating || "?",
+        episodes: item.episodes || { sub: 0, dub: 0 }
+      })),
+      trendingAnimes: (data.trending || []).map((item: any) => ({
+        id: item.id,
+        name: item.title,
+        poster: item.poster,
+        rank: item.rank
+      })),
+      mostPopularAnimes: (data.mostPopular || []).map(mapToAnimeBasic),
+      mostFavoriteAnimes: (data.mostFavorite || []).map(mapToAnimeBasic),
+      latestCompletedAnimes: (data.latestCompleted || []).map(mapToAnimeBasic)
+    };
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error("Error fetching home page data:", error);
@@ -116,6 +328,10 @@ export async function getHomePageData() {
       latestEpisodeAnimes: [],
       mostPopularAnimes: [],
       topAiringAnimes: [],
+      topUpcomingAnimes: [],
+      mostFavoriteAnimes: [],
+      latestCompletedAnimes: [],
+      top10Animes: { today: [], week: [], month: [] },
       genres: [
         "Action", "Adventure", "Cars", "Comedy", "Dementia", "Demons",
         "Drama", "Ecchi", "Fantasy", "Game", "Harem", "Historical",
