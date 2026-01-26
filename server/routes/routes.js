@@ -22,9 +22,18 @@ import * as monthlySchedule from '../modules/schedule/monthlySchedule/index';
 import * as nextEpSchedule from '../modules/schedule/nextEpSchedule/index';
 import * as meta from '../modules/meta/index';
 import * as proxy from '../modules/proxy/index';
+import * as auth from '../modules/auth/index';
+import * as user from '../modules/user/index';
 import withTryCatch from '@/utils/withTryCatch';
+import { jwt } from 'hono/jwt';
 
 const router = createRouter();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+
+// Apply JWT middleware to protected routes
+router.use('/auth/me', jwt({ secret: JWT_SECRET, alg: 'HS256' }));
+router.use('/user/*', jwt({ secret: JWT_SECRET, alg: 'HS256' }));
 
 const routes = [
   home,
@@ -53,6 +62,16 @@ const routes = [
 // Register proxy without withTryCatch wrapper to allow streaming Response
 // MUST be registered before other routes to avoid matching /{query}
 router.openapi(proxy.schema, proxy.handler);
+
+// Register auth routes
+auth.authRoutes.forEach((route) => {
+  router.openapi(route.schema, withTryCatch(route.handler));
+});
+
+// Register user routes
+user.userRoutes.forEach((route) => {
+  router.openapi(route.schema, withTryCatch(route.handler));
+});
 
 routes.forEach((route) => {
   router.openapi(route.schema, withTryCatch(route.handler));

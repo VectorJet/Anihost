@@ -20,6 +20,11 @@ export interface PlayerProps {
   onNextEpisode?: () => void;
   hasPrevEpisode?: boolean;
   hasNextEpisode?: boolean;
+  animeId?: string;
+  animeName?: string;
+  episodeId?: string;
+  episodeNumber?: number;
+  genres?: string[];
 }
 
 export interface QualityLevel {

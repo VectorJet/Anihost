@@ -4,21 +4,11 @@ import "./globals.css";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SearchTrigger } from "@/components/search-trigger"
-import { getHomePageData } from "@/lib/api"
+import { getHomePageData, getMe } from "@/lib/api"
 import { ThemeProvider } from "@/components/theme-provider"
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Anihost",
@@ -30,7 +20,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const homeData = await getHomePageData();
+  const [homeData, user] = await Promise.all([
+    getHomePageData(),
+    getMe()
+  ]);
   const genres = homeData.genres || [];
 
   return (
@@ -44,7 +37,7 @@ export default async function RootLayout({
           enableSystem
         >
           <SidebarProvider>
-            <AppSidebar genres={genres} />
+            <AppSidebar genres={genres} user={user} />
             <SidebarInset>
               <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                 <SidebarTrigger className="-ml-1" />

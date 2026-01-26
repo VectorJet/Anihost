@@ -153,19 +153,25 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
                </Button>
              </div>
           ) : sourceData && sourceData.link ? (
-             <Player 
-                key={currentEpisodeId}
-                url={sourceData.link.file} 
-                referer={sourceData.referer} 
-                subtitles={sourceData.tracks}
-                poster={anime.anime.info.poster}
-                intro={sourceData.intro}
-                outro={sourceData.outro}
-                onPrevEpisode={handlePrevEpisode}
-                onNextEpisode={handleNextEpisode}
-                hasPrevEpisode={hasPrevEpisode}
-                hasNextEpisode={hasNextEpisode}
-             />
+              <Player 
+                 key={currentEpisodeId}
+                 url={sourceData.link.file} 
+                 referer={sourceData.referer} 
+                 subtitles={sourceData.tracks}
+                 poster={anime.anime.info.poster}
+                 intro={sourceData.intro}
+                 outro={sourceData.outro}
+                 onPrevEpisode={handlePrevEpisode}
+                 onNextEpisode={handleNextEpisode}
+                 hasPrevEpisode={hasPrevEpisode}
+                 hasNextEpisode={hasNextEpisode}
+                 animeId={anime.anime.info.id}
+                 animeName={anime.anime.info.name}
+                 episodeId={currentEpisodeId}
+                 episodeNumber={currentEpisode?.number}
+                 genres={anime.anime.moreInfo.genres}
+              />
+
           ) : sourceData ? (
              <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-card">
                Stream unavailable for this server

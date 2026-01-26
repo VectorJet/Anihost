@@ -9,6 +9,7 @@ import { TopControls } from "./player/top-controls";
 import { CenterControls } from "./player/center-controls";
 import { BottomControls } from "./player/bottom-controls";
 import { SettingsMenu } from "./player/settings-menu";
+import { updateWatchHistory } from "@/lib/api";
 
 export function Player({ 
   url, 
@@ -22,6 +23,11 @@ export function Player({
   onNextEpisode,
   hasPrevEpisode = false,
   hasNextEpisode = false,
+  animeId,
+  animeName,
+  episodeId,
+  episodeNumber,
+  genres,
 }: PlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -337,6 +343,38 @@ export function Player({
       setSeekIndicator(null);
     }, 600);
   }, []);
+
+  const syncWatchHistory = useCallback(async () => {
+    if (!animeId || !episodeId || !videoRef.current) return;
+    
+    await updateWatchHistory({
+      animeId,
+      animeName,
+      animePoster: poster,
+      episodeId,
+      episodeNumber: episodeNumber || 1,
+      progress: Math.floor(videoRef.current.currentTime),
+      duration: Math.floor(videoRef.current.duration),
+      genres,
+    });
+  }, [animeId, animeName, poster, episodeId, episodeNumber, genres]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    
+    const interval = setInterval(() => {
+      syncWatchHistory();
+    }, 30000); // Sync every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isPlaying, syncWatchHistory]);
+
+  // Sync on unmount or when episode changes
+  useEffect(() => {
+    return () => {
+      syncWatchHistory();
+    };
+  }, [syncWatchHistory]);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.changedTouches[0];

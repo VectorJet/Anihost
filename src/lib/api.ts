@@ -1,8 +1,139 @@
 'use server';
 
 import { SearchResultAnime, SearchSuggestion, SearchFilters, AnimeBasic, HomePageData, AnimeAboutInfo } from "@/types/anime";
+import { cookies } from "next/headers";
 
 const API_BASE_URL = "http://localhost:4001/api/v1";
+
+async function getAuthHeaders() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
+
+export async function login(email: string, password: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      const cookieStore = await cookies();
+      cookieStore.set("auth_token", json.data.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+    }
+    return json;
+  } catch (error) {
+    console.error("Login error:", error);
+    return { success: false, message: "Login failed" };
+  }
+}
+
+export async function register(username: string, email: string, password: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      const cookieStore = await cookies();
+      cookieStore.set("auth_token", json.data.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+    }
+    return json;
+  } catch (error) {
+    console.error("Registration error:", error);
+    return { success: false, message: "Registration failed" };
+  }
+}
+
+export async function getMe() {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/auth/me`, { headers });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data.user;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function logout() {
+  const cookieStore = await cookies();
+  cookieStore.delete("auth_token");
+}
+
+export async function updateWatchHistory(data: {
+  animeId: string;
+  animeName?: string;
+  animePoster?: string;
+  episodeId: string;
+  episodeNumber: number;
+  progress: number;
+  duration: number;
+  genres?: string[];
+}) {
+  try {
+    const headers = await getAuthHeaders();
+    await fetch(`${API_BASE_URL}/user/watch-history`, {
+      method: "POST",
+      headers: { 
+        ...headers,
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    console.error("Error updating watch history:", error);
+  }
+}
+
+export async function getWatchHistory() {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/user/watch-history`, { headers });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.data || []).map((item: any) => ({
+      id: item.animeId,
+      name: item.animeName,
+      poster: item.animePoster,
+      progress: item.progress,
+      duration: item.duration,
+      episodeNumber: item.episodeNumber,
+      episodeId: item.episodeId,
+      type: "TV", // Fallback
+      episodes: { sub: 0, dub: 0 }
+    }));
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getRecommendations(): Promise<AnimeBasic[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/user/recommendations`, { headers });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.data || []).map(mapToAnimeBasic);
+  } catch (error) {
+    return [];
+  }
+}
 
 // Helper to map API Anime response to AnimeBasic
 const mapToAnimeBasic = (item: any): AnimeBasic => ({
@@ -280,9 +411,30 @@ export async function getHomePageData(): Promise<HomePageData> {
     const json = await res.json();
     const data = json.data;
 
+    // Optional: Fetch user-specific data if logged in
+    let continueWatching = undefined;
+    let recommendations = undefined;
+    
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    
+    if (token) {
+      const [history, recs] = await Promise.all([
+        getWatchHistory(),
+        getRecommendations()
+      ]);
+      
+      // We need more info for history items, but for now let's just use what we have
+      // or fetch the anime info for each. For a summary, we can just return what we have.
+      continueWatching = history; 
+      recommendations = recs;
+    }
+
     return {
       genres: data.genres || [],
       latestEpisodeAnimes: (data.latestEpisode || []).map(mapToAnimeBasic),
+      continueWatching,
+      recommendations,
       spotlightAnimes: (data.spotlight || []).map((item: any) => ({
         id: item.id,
         name: item.title,

@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { User, Settings } from 'lucide-react';
+import { User, Settings, LogIn, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
+import { AuthModal } from './auth-modal';
+import { logout } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 const SVGFilter = () => {
   return (
@@ -23,15 +26,23 @@ const SVGFilter = () => {
   );
 };
 
-export function ProfileMenu() {
+export function ProfileMenu({ user }: { user?: any }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    setIsOpen(false);
+    router.refresh();
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -51,6 +62,7 @@ export function ProfileMenu() {
   return (
     <div className="relative" ref={menuRef}>
       <SVGFilter />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -83,14 +95,35 @@ export function ProfileMenu() {
             className="absolute bottom-full left-0 mb-3 w-full max-w-[240px] z-50 origin-bottom-left"
           >
              <div className="flex flex-col gap-1 bg-white dark:bg-neutral-900 rounded-2xl p-2 shadow-xl border border-neutral-200 dark:border-neutral-800">
-                <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100">
-                  <User className="size-4" />
-                  <span className="font-medium">Profile</span>
-                </button>
-                <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100">
-                  <Settings className="size-4" />
-                  <span className="font-medium">Settings</span>
-                </button>
+                {user ? (
+                  <>
+                    <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100">
+                      <User className="size-4" />
+                      <span className="font-medium">Profile</span>
+                    </button>
+                    {user.role === 'admin' && (
+                      <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100">
+                        <Settings className="size-4" />
+                        <span className="font-medium">Admin Panel</span>
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                    >
+                      <LogOut className="size-4" />
+                      <span className="font-medium">Logout</span>
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={() => { setIsAuthModalOpen(true); setIsOpen(false); }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"
+                  >
+                    <LogIn className="size-4" />
+                    <span className="font-medium">Login / Sign Up</span>
+                  </button>
+                )}
                 
                 <Separator className="my-1" />
                 
@@ -113,11 +146,11 @@ export function ProfileMenu() {
         className="cursor-pointer group flex items-center gap-3 p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors w-full"
       >
         <Avatar className="size-8 border-2 border-transparent group-hover:border-neutral-200 dark:group-hover:border-neutral-700 transition-all">
-          <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-          <AvatarFallback>CN</AvatarFallback>
+          <AvatarImage src={user ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}` : undefined} alt={user?.username || "Guest"} />
+          <AvatarFallback>{user ? user.username.slice(0, 2).toUpperCase() : '?'}</AvatarFallback>
         </Avatar>
         <span className="flex-1 font-medium text-sm text-neutral-700 dark:text-neutral-200 truncate">
-          Shadcn
+          {user ? user.username : 'Guest'}
         </span>
         <svg 
           xmlns="http://www.w3.org/2000/svg" 

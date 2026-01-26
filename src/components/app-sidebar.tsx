@@ -47,10 +47,11 @@ const mainMenuItems = [
 ]
 
 interface AppSidebarProps {
-  genres: string[]
+  genres: string[];
+  user?: any;
 }
 
-export function AppSidebar({ genres = [] }: AppSidebarProps) {
+export function AppSidebar({ genres = [], user }: AppSidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const initialGenres = genres.slice(0, 10);
   const additionalGenres = genres.slice(10);
@@ -136,7 +137,7 @@ export function AppSidebar({ genres = [] }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <ProfileMenu />
+        <ProfileMenu user={user} />
       </SidebarFooter>
     </Sidebar>
   )

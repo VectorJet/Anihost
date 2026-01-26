@@ -32,6 +32,65 @@ export default async function Home() {
 
       <main className="container mx-auto px-4 space-y-12">
         
+        {/* Continue Watching */}
+        {data.continueWatching && data.continueWatching.length > 0 && (
+          <section>
+            <SectionHeader title="Continue Watching" />
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+              {data.continueWatching.map((item, index) => (
+                <Link
+                  href={`/watch/${item.id}?ep=${item.episodeId}`}
+                  key={`${item.id}-${index}`}
+                  className="group relative block w-64 flex-shrink-0"
+                >
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted shadow-sm group-hover:shadow-md transition-all duration-300">
+                    <Image
+                      src={item.poster}
+                      alt={item.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                       <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center text-white scale-75 group-hover:scale-100 transition-transform duration-300">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                       </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                      <div 
+                        className="h-full bg-primary" 
+                        style={{ width: `${(item.progress / item.duration) * 100}%` }} 
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <h3 className="font-semibold text-sm leading-tight line-clamp-1 group-hover:text-primary transition-colors">
+                      {item.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                       Episode {item.episodeNumber} • {Math.floor(item.progress / 60)}m left
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Recommendations */}
+        {data.recommendations && data.recommendations.length > 0 && (
+          <section>
+            <SectionHeader title="Recommended for You" />
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+              {data.recommendations.map((anime: AnimeBasic) => (
+                <div key={anime.id} className="w-40 flex-shrink-0">
+                  <AnimeCard anime={anime} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        
         {/* Trending Section */}
         {data.trendingAnimes.length > 0 && (
           <section>

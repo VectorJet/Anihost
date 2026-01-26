@@ -100,6 +100,8 @@ export interface SearchFilters {
 export interface HomePageData {
   genres: string[];
   latestEpisodeAnimes: AnimeBasic[];
+  continueWatching?: (AnimeBasic & { progress: number, duration: number, episodeNumber: number, episodeId: string })[];
+  recommendations?: AnimeBasic[];
   spotlightAnimes: SpotlightAnime[];
   top10Animes: {
     today: Top10Anime[];
