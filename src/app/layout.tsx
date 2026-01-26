@@ -10,6 +10,16 @@ import { ThemeProvider } from "@/components/theme-provider"
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "Anihost",
   description: "Anihost - Your Anime Streaming Platform",

@@ -5,10 +5,14 @@ import { cookies } from "next/headers";
 
 const API_BASE_URL = "http://localhost:4001/api/v1";
 
-async function getAuthHeaders() {
+async function getAuthHeaders(): Promise<Record<string, string>> {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
-  return token ? { "Authorization": `Bearer ${token}` } : {};
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 export async function login(email: string, password: string) {
