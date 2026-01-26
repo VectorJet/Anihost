@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,7 @@ interface CenterControlsProps {
   showControls: boolean;
 }
 
-export function CenterControls({ 
+export const CenterControls = memo(({ 
   isPlaying, 
   onPlayPause, 
   onPrevEpisode,
@@ -20,12 +20,12 @@ export function CenterControls({
   hasPrevEpisode = false,
   hasNextEpisode = false,
   showControls 
-}: CenterControlsProps) {
+}: CenterControlsProps) => {
   return (
     <div 
       className={cn(
-        "absolute inset-0 flex items-center justify-center gap-12 sm:gap-16 z-20 transition-opacity duration-300 pointer-events-none",
-        showControls ? "opacity-100" : "opacity-0"
+        "absolute inset-0 flex items-center justify-center gap-10 sm:gap-14 z-20 transition-all duration-300 ease-out pointer-events-none",
+        showControls ? "opacity-100 scale-100" : "opacity-0 scale-95"
       )}
     >
       {/* Previous Episode */}
@@ -33,27 +33,25 @@ export function CenterControls({
         onClick={(e) => { e.stopPropagation(); onPrevEpisode?.(); }}
         disabled={!hasPrevEpisode}
         className={cn(
-          "p-3 rounded-full transition-colors pointer-events-auto",
-          hasPrevEpisode ? "hover:bg-white/20" : "opacity-40 cursor-not-allowed"
+          "w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-xl border border-white/10 transition-all duration-200 pointer-events-auto",
+          hasPrevEpisode 
+            ? "bg-white/10 hover:bg-white/20 hover:scale-105 active:scale-95" 
+            : "bg-white/5 opacity-40 cursor-not-allowed"
         )}
       >
-        <SkipBack className="w-7 h-7 sm:w-8 sm:h-8 text-white fill-white" />
+        <SkipBack className="w-4 h-4 text-white/90 fill-white/90" strokeWidth={1.5} />
       </button>
 
       {/* Play/Pause Main */}
       <button
         onClick={(e) => { e.stopPropagation(); onPlayPause(); }}
-        className="group pointer-events-auto relative"
+        className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-xl border border-white/20 hover:bg-white/30 hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto"
       >
-        <div className="absolute inset-0 bg-black/50 rounded-full blur-md scale-90" />
-        <Play className={cn(
-          "w-14 h-14 sm:w-16 sm:h-16 text-white fill-white relative z-10 transition-transform active:scale-95", 
-          isPlaying ? "hidden" : "block"
-        )} />
-        <Pause className={cn(
-          "w-14 h-14 sm:w-16 sm:h-16 text-white fill-white relative z-10 transition-transform active:scale-95", 
-          isPlaying ? "block" : "hidden"
-        )} />
+        {isPlaying ? (
+          <Pause className="w-6 h-6 sm:w-7 sm:h-7 text-white fill-white" strokeWidth={1.5} />
+        ) : (
+          <Play className="w-6 h-6 sm:w-7 sm:h-7 text-white fill-white ml-1" strokeWidth={1.5} />
+        )}
       </button>
 
       {/* Next Episode */}
@@ -61,12 +59,16 @@ export function CenterControls({
         onClick={(e) => { e.stopPropagation(); onNextEpisode?.(); }}
         disabled={!hasNextEpisode}
         className={cn(
-          "p-3 rounded-full transition-colors pointer-events-auto",
-          hasNextEpisode ? "hover:bg-white/20" : "opacity-40 cursor-not-allowed"
+          "w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-xl border border-white/10 transition-all duration-200 pointer-events-auto",
+          hasNextEpisode 
+            ? "bg-white/10 hover:bg-white/20 hover:scale-105 active:scale-95" 
+            : "bg-white/5 opacity-40 cursor-not-allowed"
         )}
       >
-        <SkipForward className="w-7 h-7 sm:w-8 sm:h-8 text-white fill-white" />
+        <SkipForward className="w-4 h-4 text-white/90 fill-white/90" strokeWidth={1.5} />
       </button>
     </div>
   );
-}
+});
+
+CenterControls.displayName = "CenterControls";

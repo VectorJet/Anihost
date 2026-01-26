@@ -226,7 +226,7 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
       </div>
 
       {/* Episode List */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden h-[600px] flex flex-col shadow-sm">
+      <div className="bg-card border border-border rounded-xl overflow-hidden max-h-[600px] flex flex-col shadow-sm">
          <div className="p-4 border-b border-border font-bold text-lg bg-muted/30">Episodes</div>
          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
              <div className="grid grid-cols-1 gap-1">

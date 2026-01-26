@@ -64,14 +64,16 @@ export function Player({
   const showControlsTemporarily = useCallback(() => {
     setShowControls(true);
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    // Don't auto-hide if settings menu is open
+    if (showSettingsMenu) return;
     hideTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
+      if (isPlaying && !showSettingsMenu) {
         setShowControls(false);
         setShowSettingsMenu(false);
         setSettingsTab("main");
       }
     }, 3000);
-  }, [isPlaying]);
+  }, [isPlaying, showSettingsMenu]);
 
   useEffect(() => {
     return () => {
@@ -81,20 +83,21 @@ export function Player({
     };
   }, []);
 
-  // Auto-hide controls when playing starts
   useEffect(() => {
-    if (isPlaying) {
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+
+    if (isPlaying && !showSettingsMenu) {
       hideTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-        setShowSettingsMenu(false);
-        setSettingsTab("main");
+        if (!showSettingsMenu) {
+          setShowControls(false);
+          setShowSettingsMenu(false);
+          setSettingsTab("main");
+        }
       }, 3000);
-    } else {
+    } else if (!isPlaying) {
       setShowControls(true);
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     }
-  }, [isPlaying]);
+  }, [isPlaying, showSettingsMenu]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -111,7 +114,11 @@ export function Player({
     if (Hls.isSupported()) {
       const hls = new Hls({
         maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        maxMaxBufferLength: 90,
+        maxBufferSize: 60 * 1000 * 1000, // 60MB
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 60,
       });
       hlsRef.current = hls;
       hls.loadSource(proxiedUrl);
@@ -133,8 +140,19 @@ export function Player({
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
-          setError(`Playback error: ${data.type}`);
-          setIsLoading(false);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              setError(`Playback error: ${data.type}`);
+              setIsLoading(false);
+              hls.destroy();
+              break;
+          }
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -271,13 +289,8 @@ export function Player({
   const setQuality = (levelIndex: number) => {
     const hls = hlsRef.current;
     if (!hls) return;
-    if (levelIndex === -1) {
-      hls.currentLevel = -1;
-      setAutoQuality(true);
-    } else {
-      hls.currentLevel = levelIndex;
-      setAutoQuality(false);
-    }
+    hls.nextLevel = levelIndex;
+    setAutoQuality(levelIndex === -1);
     setCurrentQuality(levelIndex);
   };
 
@@ -333,6 +346,15 @@ export function Player({
     // Determine start value based on side (Left=Bright, Right=Vol)
     const rect = container.getBoundingClientRect();
     const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    // Ignore touch start in control areas when controls are visible
+    const isInTopControlArea = y < 80;
+    const isInBottomControlArea = y > rect.height - 100;
+    if (showControls && (isInTopControlArea || isInBottomControlArea)) {
+      return;
+    }
+    
     const isRight = x > rect.width / 2;
     const startVal = isRight ? volume : brightness;
 
@@ -347,6 +369,12 @@ export function Player({
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!touchStartRef.current) return;
+    
+    // Only allow gestures in fullscreen mode
+    if (!isFullscreen) {
+      isDraggingRef.current = false;
+      return;
+    }
     
     const touch = e.changedTouches[0];
     const deltaY = touchStartRef.current.y - touch.clientY;
@@ -404,7 +432,16 @@ export function Player({
     const touch = e.changedTouches[0];
     const rect = container.getBoundingClientRect();
     const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
     const width = rect.width;
+    const height = rect.height;
+
+    // Ignore taps in top control area (top 80px) when controls are visible
+    const isInTopControlArea = y < 80;
+    if (showControls && isInTopControlArea) {
+      touchStartRef.current = null;
+      return;
+    }
 
     // Tap Logic
     const isLeftZone = x < width * 0.3;
@@ -588,6 +625,8 @@ export function Player({
       {/* Top Controls */}
       <TopControls 
         showControls={showControls}
+        isFullscreen={isFullscreen}
+        onExitFullscreen={toggleFullscreen}
         onSettingsToggle={() => {
           setShowSettingsMenu(!showSettingsMenu);
           setSettingsTab("main");
@@ -627,7 +666,10 @@ export function Player({
       {showSkipIntro && (
         <button
           onClick={skipIntro}
-          className="absolute bottom-24 right-4 z-50 px-5 py-2.5 rounded-md bg-white text-black text-sm font-semibold shadow-lg hover:bg-white/90 transition-all duration-200"
+          className={cn(
+            "absolute right-4 z-50 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white/20 backdrop-blur-2xl border border-white/20 text-white text-[13px] sm:text-[14px] font-semibold shadow-lg hover:bg-white/30 active:scale-95 transition-all duration-200",
+            showControls ? "bottom-24 sm:bottom-28" : "bottom-6 sm:bottom-8"
+          )}
         >
           Skip Intro
         </button>
@@ -637,7 +679,10 @@ export function Player({
       {showSkipOutro && (
         <button
           onClick={skipOutro}
-          className="absolute bottom-24 right-4 z-50 px-5 py-2.5 rounded-md bg-white text-black text-sm font-semibold shadow-lg hover:bg-white/90 transition-all duration-200"
+          className={cn(
+            "absolute right-4 z-50 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white/20 backdrop-blur-2xl border border-white/20 text-white text-[13px] sm:text-[14px] font-semibold shadow-lg hover:bg-white/30 active:scale-95 transition-all duration-200",
+            showControls ? "bottom-24 sm:bottom-28" : "bottom-6 sm:bottom-8"
+          )}
         >
           Skip Outro
         </button>
@@ -656,11 +701,6 @@ export function Player({
         onToggleFullscreen={toggleFullscreen}
         onToggleMute={toggleMute}
         onSeek={handleSeek}
-        onSettingsToggle={() => {
-          setShowSettingsMenu(!showSettingsMenu);
-          setSettingsTab("main");
-        }}
-        showSettingsMenu={showSettingsMenu}
       />
     </div>
   );

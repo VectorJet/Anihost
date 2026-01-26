@@ -1,5 +1,5 @@
 import React, { forwardRef } from "react";
-import { Maximize, Minimize, Volume2, VolumeX, Settings } from "lucide-react";
+import { Maximize, Minimize, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "./utils";
 
@@ -14,8 +14,6 @@ interface BottomControlsProps {
   onToggleFullscreen: () => void;
   onToggleMute: () => void;
   onSeek: (e: React.MouseEvent<HTMLDivElement>) => void;
-  onSettingsToggle: () => void;
-  showSettingsMenu: boolean;
 }
 
 export const BottomControls = forwardRef<HTMLDivElement, BottomControlsProps>(
@@ -30,78 +28,125 @@ export const BottomControls = forwardRef<HTMLDivElement, BottomControlsProps>(
     onToggleFullscreen,
     onToggleMute,
     onSeek,
-    onSettingsToggle,
-    showSettingsMenu
   }, ref) => {
+    const [isDragging, setIsDragging] = React.useState(false);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      setIsDragging(true);
+      onSeek(e as any);
+    };
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+      e.stopPropagation();
+      setIsDragging(true);
+      const touch = e.touches[0];
+      onSeek({ clientX: touch.clientX } as any);
+    };
+
+    React.useEffect(() => {
+      if (!isDragging) return;
+
+      const handleMouseMove = (e: MouseEvent) => {
+        onSeek(e as any);
+      };
+
+      const handleMouseUp = () => {
+        setIsDragging(false);
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        const touch = e.touches[0];
+        onSeek({ clientX: touch.clientX } as any);
+      };
+
+      const handleTouchEnd = () => {
+        setIsDragging(false);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleTouchMove);
+      window.addEventListener("touchend", handleTouchEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("touchend", handleTouchEnd);
+      };
+    }, [isDragging, onSeek]);
+
     return (
       <div
         className={cn(
-          "absolute bottom-0 left-0 right-0 z-20 px-3 pb-3 transition-all duration-300",
-          showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          "absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 transition-all duration-300 ease-out",
+          showControls || isDragging ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress bar - full width at bottom */}
+        {/* Time display */}
+        <div className="flex justify-between items-center mb-1.5 px-0.5">
+          <span className="text-[12px] text-white/80 font-medium tabular-nums tracking-tight">
+            {formatTime(currentTime)}
+          </span>
+          <span className="text-[12px] text-white/50 font-medium tabular-nums tracking-tight">
+            {formatTime(duration)}
+          </span>
+        </div>
+
+        {/* Progress bar */}
         <div
           ref={ref}
-          className="relative w-full h-5 cursor-pointer group/progress touch-none mb-2"
-          onClick={onSeek}
+          className="relative w-full h-6 cursor-pointer group/progress touch-none mb-2.5 flex items-center"
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
         >
-          {/* Time display above progress bar */}
-          <div className="absolute -top-5 left-0 right-0 flex justify-between text-xs text-white/80 font-medium tabular-nums">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
-          </div>
-
-          {/* Track */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1 bg-white/30 rounded-full group-hover/progress:h-1.5 transition-all duration-200">
+          {/* Track container */}
+          <div className="relative w-full h-[3px] bg-white/20 rounded-full overflow-hidden">
             {/* Buffered */}
             <div
-              className="absolute top-0 bottom-0 left-0 bg-white/50 rounded-full"
+              className="absolute top-0 bottom-0 left-0 bg-white/30 rounded-full"
               style={{ width: `${buffered}%` }}
             />
             {/* Progress */}
             <div
-              className="absolute top-0 bottom-0 left-0 bg-red-500 rounded-full"
+              className="absolute top-0 bottom-0 left-0 bg-white rounded-full"
               style={{ width: `${progress}%` }}
-            >
-              {/* Handle/Knob */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3.5 h-3.5 bg-red-500 rounded-full shadow-md group-hover/progress:scale-125 transition-transform duration-200" />
-            </div>
+            />
           </div>
+          {/* Handle - Circular */}
+          <div 
+            className={cn(
+              "absolute w-3.5 h-3.5 bg-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform duration-200",
+              isDragging ? "scale-125" : "scale-100 md:opacity-0 md:group-hover/progress:opacity-100"
+            )}
+            style={{ left: `calc(${progress}% - 7px)` }}
+          />
         </div>
 
-        {/* Bottom row: Volume | Settings + Fullscreen */}
+        {/* Bottom row: Volume | Fullscreen */}
         <div className="flex items-center justify-between">
           {/* Left: Volume */}
           <button
             onClick={onToggleMute}
-            className="p-2 rounded-full hover:bg-white/20 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-xl border border-white/10 hover:bg-white/20 transition-all duration-200"
           >
             {isMuted ? (
-              <VolumeX className="h-5 w-5 text-white" />
+              <VolumeX className="h-4 w-4 text-white/90" strokeWidth={2} />
             ) : (
-              <Volume2 className="h-5 w-5 text-white" />
+              <Volume2 className="h-4 w-4 text-white/90" strokeWidth={2} />
             )}
           </button>
 
-          {/* Right: Settings + Fullscreen */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onSettingsToggle}
-              className="p-2 rounded-full hover:bg-white/20 transition-colors"
-            >
-              <Settings className={cn("h-5 w-5 text-white transition-transform", showSettingsMenu && "rotate-45")} />
-            </button>
-            
+          {/* Right: Fullscreen */}
+          <div className="flex items-center gap-2">
             <button
               onClick={onToggleFullscreen}
-              className="p-2 rounded-full hover:bg-white/20 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-xl border border-white/10 hover:bg-white/20 transition-all duration-200"
             >
               {isFullscreen ? (
-                <Minimize className="h-5 w-5 text-white" />
+                <Minimize className="h-4 w-4 text-white/90" strokeWidth={2} />
               ) : (
-                <Maximize className="h-5 w-5 text-white" />
+                <Maximize className="h-4 w-4 text-white/90" strokeWidth={2} />
               )}
             </button>
           </div>

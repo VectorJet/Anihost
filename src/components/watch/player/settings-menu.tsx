@@ -1,13 +1,41 @@
-import React from "react";
+import React, { useEffect, useRef, useCallback, memo } from "react";
 import { 
   Sparkles, 
   Gauge, 
   Subtitles, 
   ChevronLeft, 
-  Check 
+  Check, 
+  ChevronRight 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsTab, QualityLevel } from "./types";
+import { motion, AnimatePresence } from "framer-motion";
+
+function MenuButton({ 
+  onClick, 
+  children, 
+  className 
+}: { 
+  onClick: () => void; 
+  children: React.ReactNode; 
+  className?: string;
+}) {
+  const handleClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick();
+  }, [onClick]);
+
+  return (
+    <button
+      onClick={handleClick}
+      onTouchEnd={handleClick}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface SettingsMenuProps {
   showSettingsMenu: boolean;
@@ -26,7 +54,7 @@ interface SettingsMenuProps {
   onClose: () => void;
 }
 
-export function SettingsMenu({
+export const SettingsMenu = memo(({
   showSettingsMenu,
   settingsTab,
   autoQuality,
@@ -40,180 +68,259 @@ export function SettingsMenu({
   onSetSpeed,
   onSetSubtitle,
   onClose
-}: SettingsMenuProps) {
-  
-  const speedOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+}: SettingsMenuProps) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-  if (!showSettingsMenu) return null;
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if click is inside menu or on the settings button
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        // Don't close if clicking the settings toggle button
+        if (target.closest('[data-settings-toggle]')) return;
+        onClose();
+      }
+    };
+
+    // Use a slight delay to prevent immediate closing on the same click that opened it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+      document.addEventListener("touchend", handleClickOutside);
+    }, 50);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("touchend", handleClickOutside);
+    };
+  }, [showSettingsMenu, onClose]);
 
   return (
-    <div 
-      className="absolute bottom-20 right-3 z-50 bg-black/95 backdrop-blur-md rounded-lg overflow-hidden min-w-[220px] shadow-xl border border-white/10"
-      onClick={(e) => e.stopPropagation()}
-    >
-                  {settingsTab === "main" && (
-                    <div className="p-1">
-                      <button
-                        onClick={() => onSetTab("quality")}
-                        className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-md transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Sparkles className="h-4 w-4 text-white/70" />
-                          <span>Quality</span>
-                        </div>
-                        <span className="text-white/50 text-xs">
-                          {autoQuality ? "Auto" : `${qualityLevels.find(q => q.index === currentQuality)?.height || "?"}p`}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => onSetTab("speed")}
-                        className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-md transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Gauge className="h-4 w-4 text-white/70" />
-                          <span>Speed</span>
-                        </div>
-                        <span className="text-white/50 text-xs">{playbackSpeed}x</span>
-                      </button>
-                      <button
-                        onClick={() => onSetTab("subtitles")}
-                        className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-md transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Subtitles className="h-4 w-4 text-white/70" />
-                          <span>Subtitles</span>
-                        </div>
-                        <span className="text-white/50 text-xs">{activeSubtitle || "Off"}</span>
-                      </button>
-                    </div>
-                  )}
+    <AnimatePresence>
+      {showSettingsMenu && (
+        <motion.div 
+          ref={menuRef}
+          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -10 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="absolute top-12 sm:top-16 right-2 sm:right-4 z-50 bg-black/90 backdrop-blur-2xl rounded-xl sm:rounded-2xl overflow-hidden w-[160px] sm:w-[200px] shadow-2xl border border-white/10"
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {settingsTab === "main" && (
+              <motion.div 
+                key="main"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15 }}
+                className="p-1"
+              >
+                <MenuButton
+                  onClick={() => onSetTab("quality")}
+                  className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 hover:bg-white/10 active:bg-white/20 rounded-lg sm:rounded-xl transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white/60" strokeWidth={2} />
+                    <span className="font-medium">Quality</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-white/50">
+                    <span className="text-[11px] sm:text-[12px]">
+                      {autoQuality ? "Auto" : `${qualityLevels.find(q => q.index === currentQuality)?.height || "?"}p`}
+                    </span>
+                    <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2} />
+                  </div>
+                </MenuButton>
+                
+                <MenuButton
+                  onClick={() => onSetTab("speed")}
+                  className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 hover:bg-white/10 active:bg-white/20 rounded-lg sm:rounded-xl transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white/60" strokeWidth={2} />
+                    <span className="font-medium">Speed</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-white/50">
+                    <span className="text-[11px] sm:text-[12px]">{playbackSpeed === 1 ? "Normal" : `${playbackSpeed}×`}</span>
+                    <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2} />
+                  </div>
+                </MenuButton>
+                
+                <MenuButton
+                  onClick={() => onSetTab("subtitles")}
+                  className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 hover:bg-white/10 active:bg-white/20 rounded-lg sm:rounded-xl transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Subtitles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white/60" strokeWidth={2} />
+                    <span className="font-medium">Subtitles</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-white/50">
+                    <span className="text-[11px] sm:text-[12px] overflow-hidden text-ellipsis whitespace-nowrap max-w-[50px] sm:max-w-[60px]">
+                      {activeSubtitle || "Off"}
+                    </span>
+                    <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2} />
+                  </div>
+                </MenuButton>
+              </motion.div>
+            )}
 
-                  {settingsTab === "quality" && (
-                    <div>
-                      <button
-                        onClick={() => onSetTab("main")}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white border-b border-white/10 hover:bg-white/10"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        <span className="font-medium">Quality</span>
-                      </button>
-                      <div className="p-1 max-h-[200px] overflow-y-auto">
-                        <button
-                          onClick={() => {
-                            onSetQuality(-1);
-                            onClose();
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors",
-                            autoQuality ? "text-white bg-white/10" : "text-white/70 hover:bg-white/10"
-                          )}
-                        >
-                          <span>Auto</span>
-                          {autoQuality && <Check className="h-4 w-4" />}
-                        </button>
-                        {qualityLevels.map((level) => (
-                          <button
-                            key={level.index}
-                            onClick={() => {
-                              onSetQuality(level.index);
-                              onClose();
-                            }}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors",
-                              !autoQuality && currentQuality === level.index
-                                ? "text-white bg-white/10"
-                                : "text-white/70 hover:bg-white/10"
-                            )}
-                          >
-                            <span>{level.height}p</span>
-                            {!autoQuality && currentQuality === level.index && <Check className="h-4 w-4" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {settingsTab === "quality" && (
+              <motion.div 
+                key="quality"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MenuButton
+                  onClick={() => onSetTab("main")}
+                  className="w-full flex items-center gap-2 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 border-b border-white/10 hover:bg-white/10 active:bg-white/20 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.5} />
+                  <span className="font-semibold">Quality</span>
+                </MenuButton>
+                <div className="p-1 max-h-[150px] sm:max-h-[200px] overflow-y-auto scrollbar-hide">
+                  <MenuButton
+                    onClick={() => {
+                      onSetQuality(-1);
+                      onClose();
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-colors",
+                      autoQuality ? "text-white bg-white/10" : "text-white/70 hover:bg-white/10 active:bg-white/20"
+                    )}
+                  >
+                    <span className="font-medium">Auto</span>
+                    {autoQuality && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" strokeWidth={2.5} />}
+                  </MenuButton>
+                  {qualityLevels.map((level) => (
+                    <MenuButton
+                      key={level.index}
+                      onClick={() => {
+                        onSetQuality(level.index);
+                        onClose();
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-colors",
+                        !autoQuality && currentQuality === level.index
+                          ? "text-white bg-white/10"
+                          : "text-white/70 hover:bg-white/10 active:bg-white/20"
+                      )}
+                    >
+                      <span className="font-medium">{level.height}p</span>
+                      {!autoQuality && currentQuality === level.index && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" strokeWidth={2.5} />}
+                    </MenuButton>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
-                  {settingsTab === "speed" && (
-                    <div>
-                      <button
-                        onClick={() => onSetTab("main")}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white border-b border-white/10 hover:bg-white/10"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        <span className="font-medium">Speed</span>
-                      </button>
-                      <div className="p-1 max-h-[200px] overflow-y-auto">
-                        {speedOptions.map((speed) => (
-                          <button
-                            key={speed}
-                            onClick={() => {
-                              onSetSpeed(speed);
-                              onClose();
-                            }}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors",
-                              playbackSpeed === speed
-                                ? "text-white bg-white/10"
-                                : "text-white/70 hover:bg-white/10"
-                            )}
-                          >
-                            <span>{speed === 1 ? "Normal" : `${speed}x`}</span>
-                            {playbackSpeed === speed && <Check className="h-4 w-4" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {settingsTab === "speed" && (
+              <motion.div 
+                key="speed"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MenuButton
+                  onClick={() => onSetTab("main")}
+                  className="w-full flex items-center gap-2 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 border-b border-white/10 hover:bg-white/10 active:bg-white/20 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.5} />
+                  <span className="font-semibold">Speed</span>
+                </MenuButton>
+                <div className="p-1 max-h-[150px] sm:max-h-[200px] overflow-y-auto scrollbar-hide">
+                  {speedOptions.map((speed) => (
+                    <MenuButton
+                      key={speed}
+                      onClick={() => {
+                        onSetSpeed(speed);
+                        onClose();
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-colors",
+                        playbackSpeed === speed
+                          ? "text-white bg-white/10"
+                          : "text-white/70 hover:bg-white/10 active:bg-white/20"
+                      )}
+                    >
+                      <span className="font-medium">{speed === 1 ? "Normal" : `${speed}×`}</span>
+                      {playbackSpeed === speed && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" strokeWidth={2.5} />}
+                    </MenuButton>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
-                  {settingsTab === "subtitles" && (
-                    <div>
-                      <button
-                        onClick={() => onSetTab("main")}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white border-b border-white/10 hover:bg-white/10"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        <span className="font-medium">Subtitles</span>
-                      </button>
-                      <div className="p-1 max-h-[200px] overflow-y-auto">
-                        <button
-                          onClick={() => {
-                            onSetSubtitle(null);
-                            onClose();
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors",
-                            activeSubtitle === null
-                              ? "text-white bg-white/10"
-                              : "text-white/70 hover:bg-white/10"
-                          )}
-                        >
-                          <span>Off</span>
-                          {activeSubtitle === null && <Check className="h-4 w-4" />}
-                        </button>
-                        {subtitles?.filter(s => s.kind === "captions" || s.kind === "subtitles").map((sub) => (
-                          <button
-                            key={sub.label}
-                            onClick={() => {
-                              onSetSubtitle(sub.label);
-                              onClose();
-                            }}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors",
-                              activeSubtitle === sub.label
-                                ? "text-white bg-white/10"
-                                : "text-white/70 hover:bg-white/10"
-                            )}
-                          >
-                            <span>{sub.label}</span>
-                            {activeSubtitle === sub.label && <Check className="h-4 w-4" />}
-                          </button>
-                        ))}
-                        {(!subtitles || subtitles.filter(s => s.kind === "captions" || s.kind === "subtitles").length === 0) && (
-                          <div className="px-3 py-2 text-sm text-white/50">No subtitles available</div>
-                        )}
-                      </div>
-                    </div>
+            {settingsTab === "subtitles" && (
+              <motion.div 
+                key="subtitles"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MenuButton
+                  onClick={() => onSetTab("main")}
+                  className="w-full flex items-center gap-2 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 border-b border-white/10 hover:bg-white/10 active:bg-white/20 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.5} />
+                  <span className="font-semibold">Subtitles</span>
+                </MenuButton>
+                <div className="p-1 max-h-[150px] sm:max-h-[200px] overflow-y-auto scrollbar-hide">
+                  <MenuButton
+                    onClick={() => {
+                      onSetSubtitle(null);
+                      onClose();
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-colors",
+                      activeSubtitle === null
+                        ? "text-white bg-white/10"
+                        : "text-white/70 hover:bg-white/10 active:bg-white/20"
+                    )}
+                  >
+                    <span className="font-medium">Off</span>
+                    {activeSubtitle === null && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" strokeWidth={2.5} />}
+                  </MenuButton>
+                  {subtitles?.filter(s => s.kind === "captions" || s.kind === "subtitles").map((sub) => (
+                    <MenuButton
+                      key={sub.label}
+                      onClick={() => {
+                        onSetSubtitle(sub.label);
+                        onClose();
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-colors",
+                        activeSubtitle === sub.label
+                          ? "text-white bg-white/10"
+                          : "text-white/70 hover:bg-white/10 active:bg-white/20"
+                      )}
+                    >
+                      <span className="font-medium">{sub.label}</span>
+                      {activeSubtitle === sub.label && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" strokeWidth={2.5} />}
+                    </MenuButton>
+                  ))}
+                  {(!subtitles || subtitles.filter(s => s.kind === "captions" || s.kind === "subtitles").length === 0) && (
+                    <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white/40">No subtitles available</div>
                   )}
-    </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
-}
+});
+
+SettingsMenu.displayName = "SettingsMenu";

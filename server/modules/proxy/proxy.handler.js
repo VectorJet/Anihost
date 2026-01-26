@@ -1,25 +1,34 @@
 export default async function proxyHandler(c) {
   const { url, referer } = c.req.valid('query');
-  console.log(`Proxying: ${url} with Referer: ${referer}`);
 
   try {
+    const incomingHeaders = c.req.header();
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'User-Agent': incomingHeaders['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     };
 
     if (referer) {
       headers['Referer'] = referer;
     }
 
-    const response = await fetch(url, { headers });
-    console.log(`Proxy response status: ${response.status}`);
+    if (incomingHeaders['range']) {
+      headers['Range'] = incomingHeaders['range'];
+    }
 
-    // Check if response is m3u8
+    const response = await fetch(url, { headers });
+
     const contentType = response.headers.get('content-type');
-    const isM3U8 = contentType && (contentType.includes('mpegurl') || url.endsWith('.m3u8') || url.endsWith('.m3u'));
+    const isM3U8 = contentType && (contentType.includes('mpegurl') || url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('.m3u'));
 
     let body = response.body;
     
+    const newHeaders = new Headers();
+    const allowHeaders = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control', 'expires', 'last-modified'];
+    allowHeaders.forEach(h => {
+      const val = response.headers.get(h);
+      if (val) newHeaders.set(h, val);
+    });
+
     if (isM3U8 && response.ok) {
         const text = await response.text();
         const reqUrlObj = new URL(c.req.url);
@@ -27,24 +36,27 @@ export default async function proxyHandler(c) {
         
         const rewriteUrl = (target) => {
             if (!target) return target;
-            const resolved = new URL(target, url).toString();
-            return `${proxyBase}?url=${encodeURIComponent(resolved)}&referer=${encodeURIComponent(referer || '')}`;
+            try {
+                const resolved = new URL(target, url).toString();
+                return `${proxyBase}?url=${encodeURIComponent(resolved)}&referer=${encodeURIComponent(referer || '')}`;
+            } catch (e) {
+                return target;
+            }
         };
 
         const newText = text.replace(/^(?!#)(.+)$/gm, (match) => {
-            return rewriteUrl(match.trim());
+            const trimmed = match.trim();
+            if (trimmed.length === 0) return match;
+            return rewriteUrl(trimmed);
         }).replace(/URI="([^"]+)"/g, (match, p1) => {
             return `URI="${rewriteUrl(p1)}"`;
         });
 
         body = newText;
+        newHeaders.delete('content-length');
     }
 
-    // Copy important headers from the response
-    const newHeaders = new Headers(response.headers);
-    newHeaders.set('Access-Control-Allow-Origin', '*'); // Enable CORS for the proxy response
-    newHeaders.delete('Content-Encoding'); // Remove compression header as fetch decompresses
-    newHeaders.delete('Content-Length'); // Remove length as it might change or be invalid
+    newHeaders.set('Access-Control-Allow-Origin', '*');
     
     return new Response(body, {
       status: response.status,
@@ -56,3 +68,4 @@ export default async function proxyHandler(c) {
     return c.json({ error: 'Failed to proxy request', details: error.message }, 500);
   }
 }
+
