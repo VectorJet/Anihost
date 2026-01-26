@@ -3,5 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from './schema.js';
 import path from 'path';
 
-const sqlite = new Database(path.join(process.cwd(), 'sqlite.db'));
+// Use a consistent path relative to this file
+const dbPath = path.join(import.meta.dir, '..', 'sqlite.db');
+const sqlite = new Database(dbPath);
 export const db = drizzle(sqlite, { schema });
