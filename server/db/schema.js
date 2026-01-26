@@ -8,6 +8,7 @@ export const users = sqliteTable('users', {
   role: text('role').notNull().default('user'), // 'admin' or 'user'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  lastActiveAt: integer('last_active_at', { mode: 'timestamp' }),
 });
 
 export const watchHistory = sqliteTable('watch_history', {

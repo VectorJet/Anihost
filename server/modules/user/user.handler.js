@@ -1,6 +1,6 @@
 import { db } from '../../db/index.js';
-import { watchHistory, userInterests } from '../../db/schema.js';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { watchHistory, userInterests, users } from '../../db/schema.js';
+import { eq, and, sql, desc, gt } from 'drizzle-orm';
 import { success } from '../../utils/response.js';
 import { AppError } from '../../utils/errors.js';
 import { axiosInstance } from '../../services/axiosInstance.js';
@@ -11,6 +11,11 @@ export async function updateWatchHistoryHandler(c) {
   const { animeId, animeName, animePoster, episodeId, episodeNumber, progress, duration, genres } = c.req.valid('json');
 
   const userId = payload.id;
+
+  // Update lastActiveAt whenever watch history is updated too
+  await db.update(users)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(users.id, userId));
 
   // Update watch history
   const existing = await db.query.watchHistory.findFirst({
@@ -102,4 +107,32 @@ export async function getRecommendationsHandler(c) {
 
   const response = exploreExtract(result.data);
   return success(c, response.response);
+}
+
+export async function heartbeatHandler(c) {
+  const payload = c.get('jwtPayload');
+  const userId = payload.id;
+
+  await db.update(users)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(users.id, userId));
+
+  return success(c, { success: true });
+}
+
+export async function getActiveUsersHandler(c) {
+  // Active in the last 5 minutes
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+  const activeUsers = await db.query.users.findMany({
+    where: gt(users.lastActiveAt, fiveMinutesAgo),
+    columns: {
+      id: true,
+      username: true,
+      lastActiveAt: true,
+    },
+    orderBy: [desc(users.lastActiveAt)],
+  });
+
+  return success(c, activeUsers);
 }

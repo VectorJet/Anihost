@@ -153,6 +153,30 @@ export async function getRecommendations(): Promise<AnimeBasic[]> {
   }
 }
 
+export async function sendHeartbeat() {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) return;
+    await fetch(`${API_BASE_URL}/user/heartbeat`, {
+      method: "POST",
+      headers
+    });
+  } catch (error) {
+    // Ignore heartbeat errors
+  }
+}
+
+export async function getActiveUsers() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/user/active`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (error) {
+    return [];
+  }
+}
+
 // Helper to map API Anime response to AnimeBasic
 const mapToAnimeBasic = (item: any): AnimeBasic => ({
   id: item.id,

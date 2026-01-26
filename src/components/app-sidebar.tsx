@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { ActiveUsers } from "./active-users"
 
 const mainMenuItems = [
   { title: "Home", url: "/", icon: Home },
@@ -81,6 +82,8 @@ export function AppSidebar({ genres = [], user }: AppSidebarProps) {
         </SidebarGroup>
 
         <SidebarSeparator className="mx-4 my-2" />
+
+        <ActiveUsers />
 
         <SidebarGroup>
           <SidebarGroupLabel>Genre</SidebarGroupLabel>

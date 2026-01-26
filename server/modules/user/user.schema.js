@@ -91,3 +91,47 @@ export const getRecommendationsSchema = createRoute({
   },
   description: 'Get personalized anime recommendations',
 });
+
+export const heartbeatSchema = createRoute({
+  method: 'post',
+  path: '/user/heartbeat',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+      description: 'Heartbeat recorded',
+    },
+    401: {
+      description: 'Unauthorized',
+    },
+  },
+  description: 'Record user activity',
+});
+
+export const getActiveUsersSchema = createRoute({
+  method: 'get',
+  path: '/user/active',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(z.object({
+              id: z.string(),
+              username: z.string(),
+              lastActiveAt: z.date().nullable(),
+            })),
+          }),
+        },
+      },
+      description: 'Active users retrieved',
+    },
+  },
+  description: 'Get list of active users (active in last 5 minutes)',
+});

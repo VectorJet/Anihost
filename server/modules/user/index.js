@@ -16,4 +16,14 @@ export const getRecommendations = {
   handler: handler.getRecommendationsHandler,
 };
 
-export const userRoutes = [updateWatchHistory, getWatchHistory, getRecommendations];
+export const heartbeat = {
+  schema: schema.heartbeatSchema,
+  handler: handler.heartbeatHandler,
+};
+
+export const getActiveUsers = {
+  schema: schema.getActiveUsersSchema,
+  handler: handler.getActiveUsersHandler,
+};
+
+export const userRoutes = [updateWatchHistory, getWatchHistory, getRecommendations, heartbeat, getActiveUsers];
