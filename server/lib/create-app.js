@@ -43,6 +43,12 @@ export default function createApp() {
       if (err instanceof AppError) {
         return fail(c, err.message, err.statusCode, err.details);
       }
+      
+      // Handle Hono JWT errors
+      if (err.message === 'no authorization included in request' || err.message === 'invalid token') {
+        return fail(c, err.message, 401);
+      }
+
       console.error('unexpacted Error :' + err.message);
       return fail(c);
     });

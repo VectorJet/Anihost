@@ -8,11 +8,14 @@ const API_BASE_URL = "http://localhost:4001/api/v1";
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  
+  if (!token) {
+    return {};
   }
-  return headers;
+
+  return {
+    "Authorization": `Bearer ${token}`
+  };
 }
 
 export async function login(email: string, password: string) {
@@ -27,7 +30,7 @@ export async function login(email: string, password: string) {
       const cookieStore = await cookies();
       cookieStore.set("auth_token", json.data.token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false, // Set to false for better compatibility in self-hosted environments without HTTPS
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 7, // 7 days
       });
@@ -51,7 +54,7 @@ export async function register(username: string, email: string, password: string
       const cookieStore = await cookies();
       cookieStore.set("auth_token", json.data.token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false, // Set to false for better compatibility in self-hosted environments without HTTPS
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 7, // 7 days
       });
@@ -66,11 +69,22 @@ export async function register(username: string, email: string, password: string
 export async function getMe() {
   try {
     const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
     const res = await fetch(`${API_BASE_URL}/auth/me`, { headers });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (res.status === 401) {
+        // Token might be invalid/expired, clear it
+        await logout();
+      }
+      return null;
+    }
     const json = await res.json();
     return json.data.user;
   } catch (error) {
+    console.error("getMe error:", error);
     return null;
   }
 }
