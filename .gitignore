@@ -43,6 +43,14 @@ test-player.html
 # vercel
 .vercel
 
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database
+*.db
+server/sqlite.db
+
+# temp
+server/test-jwt.js

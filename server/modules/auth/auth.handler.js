@@ -44,7 +44,7 @@ export async function registerHandler(c) {
   }, JWT_SECRET);
 
   const { password: _, ...userWithoutPassword } = newUser;
-  return success(c, { user: userWithoutPassword, token }, 201);
+  return { user: userWithoutPassword, token };
 }
 
 export async function loginHandler(c) {
@@ -63,15 +63,20 @@ export async function loginHandler(c) {
     throw new AppError('Invalid email or password', 401);
   }
 
-  const token = await sign({ 
-    id: user.id, 
-    username: user.username, 
-    role: user.role,
-    exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7) // 7 days
-  }, JWT_SECRET);
+  try {
+    const token = await sign({ 
+      id: user.id, 
+      username: user.username, 
+      role: user.role,
+      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7) // 7 days
+    }, JWT_SECRET);
 
-  const { password: _, ...userWithoutPassword } = user;
-  return success(c, { user: userWithoutPassword, token });
+    const { password: _, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, token };
+  } catch (err) {
+    console.error("loginHandler: Token generation error:", err);
+    throw err;
+  }
 }
 
 export async function meHandler(c) {
@@ -89,5 +94,5 @@ export async function meHandler(c) {
   }
 
   const { password: _, ...userWithoutPassword } = user;
-  return success(c, { user: userWithoutPassword });
+  return { user: userWithoutPassword };
 }

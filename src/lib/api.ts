@@ -7,14 +7,23 @@ const API_BASE_URL = "http://localhost:4001/api/v1";
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const tokenCookie = cookieStore.get("auth_token");
   
-  if (!token) {
+  if (tokenCookie) {
+    // Valid token found
+  } else {
+    // Token not found in .get()
+  }
+
+  // Fallback to searching if .get() failed but it exists (weird edge case)
+  const effectiveToken = tokenCookie?.value || cookieStore.getAll().find(c => c.name === "auth_token")?.value;
+
+  if (!effectiveToken) {
     return {};
   }
 
   return {
-    "Authorization": `Bearer ${token}`
+    "Authorization": `Bearer ${effectiveToken}`
   };
 }
 
@@ -27,13 +36,22 @@ export async function login(email: string, password: string) {
     });
     const json = await res.json();
     if (json.success) {
-      const cookieStore = await cookies();
-      cookieStore.set("auth_token", json.data.token, {
-        httpOnly: true,
-        secure: false, // Set to false for better compatibility in self-hosted environments without HTTPS
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
+      const token = json.data?.token || json.token;
+      
+      if (token) {
+        const cookieStore = await cookies();
+        cookieStore.set("auth_token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+        });
+      } else {
+        console.error("Login succeeded but no token received!");
+      }
+    } else {
+      // Login failed
     }
     return json;
   } catch (error) {
@@ -168,7 +186,12 @@ export async function sendHeartbeat() {
 
 export async function getActiveUsers() {
   try {
-    const res = await fetch(`${API_BASE_URL}/user/active`);
+    const headers = await getAuthHeaders();
+    // Optimization: If no token, don't call API as it will 401
+    if (!headers["Authorization"]) {
+      return [];
+    }
+    const res = await fetch(`${API_BASE_URL}/user/active`, { headers });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data || [];

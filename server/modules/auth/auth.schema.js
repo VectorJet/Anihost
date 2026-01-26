@@ -1,13 +1,13 @@
 import { createRoute, z } from '@hono/zod-openapi';
 
 const UserSchema = z.object({
-  id: z.string(),
+  id: z.any(),
   username: z.string(),
   email: z.string().email(),
   role: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).passthrough();
 
 export const registerSchema = createRoute({
   method: 'post',
@@ -31,8 +31,7 @@ export const registerSchema = createRoute({
         'application/json': {
           schema: z.object({
             success: z.boolean(),
-            user: UserSchema,
-            token: z.string(),
+            data: z.any(),
           }),
         },
       },
@@ -66,8 +65,7 @@ export const loginSchema = createRoute({
         'application/json': {
           schema: z.object({
             success: z.boolean(),
-            user: UserSchema,
-            token: z.string(),
+            data: z.any(),
           }),
         },
       },
@@ -89,7 +87,7 @@ export const meSchema = createRoute({
         'application/json': {
           schema: z.object({
             success: z.boolean(),
-            user: UserSchema,
+            data: z.any(),
           }),
         },
       },

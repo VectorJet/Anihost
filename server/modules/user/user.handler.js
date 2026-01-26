@@ -61,7 +61,7 @@ export async function updateWatchHistoryHandler(c) {
     }
   }
 
-  return success(c, { success: true });
+  return { success: true };
 }
 
 export async function getWatchHistoryHandler(c) {
@@ -74,7 +74,7 @@ export async function getWatchHistoryHandler(c) {
     limit: 50,
   });
 
-  return success(c, history);
+  return history;
 }
 
 export async function getRecommendationsHandler(c) {
@@ -102,11 +102,11 @@ export async function getRecommendationsHandler(c) {
   if (!result.success) {
     // Fallback to home if genre search fails
     const fallback = await axiosInstance('/home');
-    return success(c, fallback.success ? exploreExtract(fallback.data).response : []);
+    return fallback.success ? exploreExtract(fallback.data).response : [];
   }
 
   const response = exploreExtract(result.data);
-  return success(c, response.response);
+  return response.response;
 }
 
 export async function heartbeatHandler(c) {
@@ -117,7 +117,7 @@ export async function heartbeatHandler(c) {
     .set({ lastActiveAt: new Date() })
     .where(eq(users.id, userId));
 
-  return success(c, { success: true });
+  return { success: true };
 }
 
 export async function getActiveUsersHandler(c) {
@@ -134,5 +134,5 @@ export async function getActiveUsersHandler(c) {
     orderBy: [desc(users.lastActiveAt)],
   });
 
-  return success(c, activeUsers);
+  return activeUsers;
 }

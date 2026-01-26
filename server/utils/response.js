@@ -1,4 +1,5 @@
 export const success = (c, data, statusCode = 200) => {
+  // console.log("Response success data keys:", Object.keys(data));
   return c.json({ success: true, data }, { status: statusCode });
 };
 
