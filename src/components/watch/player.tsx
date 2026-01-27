@@ -10,6 +10,7 @@ import { CenterControls } from "./player/center-controls";
 import { BottomControls } from "./player/bottom-controls";
 import { SettingsMenu } from "./player/settings-menu";
 import { updateWatchHistory } from "@/lib/api";
+import { saveToHistory } from "@/lib/history";
 
 export function Player({ 
   url, 
@@ -357,6 +358,19 @@ export function Player({
       duration: Math.floor(videoRef.current.duration),
       genres,
     });
+
+    // Save to local storage for guests/fallback
+    saveToHistory({
+      id: animeId,
+      name: animeName || "Unknown Anime",
+      poster: poster || "",
+      type: "TV", // Default or passed prop if available
+      episodes: { sub: 0, dub: 0 }, // Placeholder
+      progress: Math.floor(videoRef.current.currentTime),
+      duration: Math.floor(videoRef.current.duration),
+      episodeNumber: episodeNumber || 1,
+      episodeId: episodeId,
+    });
   }, [animeId, animeName, poster, episodeId, episodeNumber, genres]);
 
   useEffect(() => {
@@ -364,7 +378,7 @@ export function Player({
     
     const interval = setInterval(() => {
       syncWatchHistory();
-    }, 30000); // Sync every 30 seconds
+    }, 10000); // Sync every 10 seconds
     
     return () => clearInterval(interval);
   }, [isPlaying, syncWatchHistory]);
@@ -647,7 +661,10 @@ export function Player({
         crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+          setIsPlaying(false);
+          syncWatchHistory();
+        }}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
       />

@@ -195,8 +195,8 @@ export default async function AnimeDetailsPage({ params }: PageProps) {
         <div className="space-y-4 pt-4">
             <SectionHeader title="Related Anime" />
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {relatedAnimes.map((anime) => (
-                    <AnimeCard key={anime.id} anime={anime} />
+                {relatedAnimes.map((anime, index) => (
+                    <AnimeCard key={`${anime.id}-${index}`} anime={anime} />
                 ))}
             </div>
         </div>
@@ -207,8 +207,8 @@ export default async function AnimeDetailsPage({ params }: PageProps) {
         <div className="space-y-4 pt-4">
             <SectionHeader title="Recommended" />
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {recommendedAnimes.map((anime) => (
-                    <AnimeCard key={anime.id} anime={anime} />
+                {recommendedAnimes.map((anime, index) => (
+                    <AnimeCard key={`${anime.id}-${index}`} anime={anime} />
                 ))}
             </div>
         </div>
