@@ -33,6 +33,7 @@ import {
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ActiveUsers } from "./active-users"
+import { Logo } from "@/components/logo"
 
 const mainMenuItems = [
   { title: "Home", url: "/", icon: Home },
@@ -61,7 +62,10 @@ export function AppSidebar({ genres = [], user }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader className="flex flex-row items-center justify-between p-4">
-        <SidebarTrigger className="w-full rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" />
+        <Link href="/" className="flex items-center gap-1 group-data-[collapsible=icon]:hidden">
+          <Logo className="h-6 w-auto" />
+        </Link>
+        <SidebarTrigger className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" />
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden">
         <SidebarGroup>

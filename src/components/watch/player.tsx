@@ -28,7 +28,9 @@ export function Player({
   animeName,
   episodeId,
   episodeNumber,
+  episodeImage,
   genres,
+  initialProgress,
 }: PlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -177,6 +179,32 @@ export function Player({
       }
     };
   }, [url, referer]);
+
+  const hasAppliedInitialProgress = useRef(false);
+  
+  useEffect(() => {
+    hasAppliedInitialProgress.current = false;
+  }, [url]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !initialProgress || initialProgress <= 0 || hasAppliedInitialProgress.current) return;
+
+    const applyProgress = () => {
+      if (hasAppliedInitialProgress.current) return;
+      if (video.duration > 0 && initialProgress < video.duration - 10) {
+        video.currentTime = initialProgress;
+        hasAppliedInitialProgress.current = true;
+      }
+    };
+
+    if (video.readyState >= 1 && video.duration > 0) {
+      applyProgress();
+    } else {
+      video.addEventListener("loadedmetadata", applyProgress, { once: true });
+      return () => video.removeEventListener("loadedmetadata", applyProgress);
+    }
+  }, [initialProgress, url]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -370,8 +398,9 @@ export function Player({
       duration: Math.floor(videoRef.current.duration),
       episodeNumber: episodeNumber || 1,
       episodeId: episodeId,
+      episodeImage: episodeImage,
     });
-  }, [animeId, animeName, poster, episodeId, episodeNumber, genres]);
+  }, [animeId, animeName, poster, episodeId, episodeNumber, genres, episodeImage]);
 
   useEffect(() => {
     if (!isPlaying) return;

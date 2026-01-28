@@ -77,7 +77,7 @@ export function ContinueWatching({ initialData }: ContinueWatchingProps) {
               {/* Card Container */}
               <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted shadow-sm group-hover:shadow-lg transition-all duration-300 ring-1 ring-white/10">
                 <Image
-                  src={item.poster || "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="}
+                  src={item.episodeImage || item.poster || "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="}
                   alt={item.name}
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"

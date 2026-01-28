@@ -24,7 +24,9 @@ export interface PlayerProps {
   animeName?: string;
   episodeId?: string;
   episodeNumber?: number;
+  episodeImage?: string;
   genres?: string[];
+  initialProgress?: number;
 }
 
 export interface QualityLevel {

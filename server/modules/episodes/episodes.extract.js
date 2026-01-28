@@ -19,6 +19,10 @@ export default function episodesExtract(html) {
 
     obj.alternativeTitle = $(el).find('.ep-name.e-dynamic-name').attr('data-jname');
 
+    // Attempt to extract thumbnail
+    const img = $(el).find('img');
+    obj.image = img.attr('data-src') || img.attr('src') || null;
+
     response.push(obj);
   });
   return response;

@@ -151,6 +151,7 @@ export async function getWatchHistory() {
       duration: item.duration,
       episodeNumber: item.episodeNumber,
       episodeId: item.episodeId,
+      episodeImage: item.episodeImage,
       type: "TV", // Fallback
       episodes: { sub: 0, dub: 0 }
     }));
@@ -403,7 +404,8 @@ export async function getAnimeEpisodes(animeId: string) {
       number: ep.episodeNumber,
       title: ep.title,
       episodeId: ep.id,
-      isFiller: ep.isFiller
+      isFiller: ep.isFiller,
+      image: ep.image,
     }));
     return { episodes, totalEpisodes: episodes.length };
   } catch (error) {

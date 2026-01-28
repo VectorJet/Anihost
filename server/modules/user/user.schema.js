@@ -2,8 +2,11 @@ import { createRoute, z } from '@hono/zod-openapi';
 
 const WatchHistorySchema = z.object({
   animeId: z.string(),
+  animeName: z.string(),
+  animePoster: z.string(),
   episodeId: z.string(),
   episodeNumber: z.number(),
+  episodeImage: z.string().optional(),
   progress: z.number(),
   duration: z.number(),
   lastWatchedAt: z.date(),
@@ -22,6 +25,7 @@ export const updateWatchHistorySchema = createRoute({
             animePoster: z.string().optional(),
             episodeId: z.string(),
             episodeNumber: z.number(),
+            episodeImage: z.string().optional(),
             progress: z.number(),
             duration: z.number(),
             genres: z.array(z.string()).optional(), // To update interests

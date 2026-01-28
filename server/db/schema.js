@@ -21,6 +21,7 @@ export const watchHistory = sqliteTable('watch_history', {
   animePoster: text('anime_poster').notNull().default(''),
   episodeId: text('episode_id').notNull(),
   episodeNumber: integer('episode_number').notNull(),
+  episodeImage: text('episode_image').default(''),
   progress: integer('progress').notNull(), // in seconds
   duration: integer('duration').notNull(), // in seconds
   lastWatchedAt: integer('last_watched_at', { mode: 'timestamp' }).notNull(),

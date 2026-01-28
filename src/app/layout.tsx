@@ -6,6 +6,8 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SearchTrigger } from "@/components/search-trigger"
 import { getHomePageData, getMe } from "@/lib/api"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Logo } from "@/components/logo"
+import Link from "next/link"
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -52,7 +54,10 @@ export default async function RootLayout({
               <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                 <SidebarTrigger className="-ml-1" />
                 <div className="w-px h-6 bg-border mx-2" />
-                <h1 className="text-lg font-bold">Anihost</h1>
+                <Link href="/" className="flex items-center gap-1">
+                  <Logo className="h-7 w-auto mb-1" />
+                  <h1 className="text-xl font-bold tracking-tight">nihost</h1>
+                </Link>
                 <SearchTrigger />
               </header>
               {children}

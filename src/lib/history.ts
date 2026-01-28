@@ -5,6 +5,7 @@ export interface HistoryItem extends AnimeBasic {
   duration: number;
   episodeNumber: number;
   episodeId: string;
+  episodeImage?: string;
   updatedAt: number;
 }
 

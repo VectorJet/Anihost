@@ -10,6 +10,7 @@ const schema = z.object({
       id: z.string(),
       isFiller: z.boolean(),
       episodeNumber: z.number(),
+      image: z.string().nullable().optional(),
     })
   ),
 });

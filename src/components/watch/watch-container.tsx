@@ -5,6 +5,7 @@ import { Player } from './player';
 import { getAnimeEpisodeServers, getEpisodeSources } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getFromHistory, HistoryItem } from '@/lib/history';
 
 interface WatchContainerProps {
   anime: any;
@@ -119,6 +120,14 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
   const currentEpisode = episodes.find(e => e.episodeId === currentEpisodeId);
   const currentEpisodeIndex = episodes.findIndex(e => e.episodeId === currentEpisodeId);
   
+  const getInitialProgressForEpisode = (epId: string): number => {
+    const history = getFromHistory();
+    const item = history.find((h: HistoryItem) => h.id === anime.anime.info.id && h.episodeId === epId);
+    return item?.progress || 0;
+  };
+  
+  const initialProgress = getInitialProgressForEpisode(currentEpisodeId);
+  
   const hasPrevEpisode = currentEpisodeIndex > 0;
   const hasNextEpisode = currentEpisodeIndex < episodes.length - 1;
 
@@ -169,7 +178,9 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
                  animeName={anime.anime.info.name}
                  episodeId={currentEpisodeId}
                  episodeNumber={currentEpisode?.number}
+                 episodeImage={currentEpisode?.image}
                  genres={anime.anime.moreInfo.genres}
+                 initialProgress={initialProgress}
               />
 
           ) : sourceData ? (

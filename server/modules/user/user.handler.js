@@ -8,7 +8,7 @@ import exploreExtract from '../explore/explore.extract.js';
 
 export async function updateWatchHistoryHandler(c) {
   const payload = c.get('jwtPayload');
-  const { animeId, animeName, animePoster, episodeId, episodeNumber, progress, duration, genres } = c.req.valid('json');
+  const { animeId, animeName, animePoster, episodeId, episodeNumber, episodeImage, progress, duration, genres } = c.req.valid('json');
 
   const userId = payload.id;
 
@@ -29,6 +29,7 @@ export async function updateWatchHistoryHandler(c) {
         animePoster: animePoster || existing.animePoster,
         episodeId,
         episodeNumber,
+        episodeImage: episodeImage || existing.episodeImage,
         progress,
         duration,
         lastWatchedAt: new Date(),
@@ -43,6 +44,7 @@ export async function updateWatchHistoryHandler(c) {
       animePoster: animePoster || '',
       episodeId,
       episodeNumber,
+      episodeImage: episodeImage || '',
       progress,
       duration,
       lastWatchedAt: new Date(),
