@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar"
 import { ProfileMenu } from "@/components/profile-menu"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { 
   Home, 
   Captions, 
@@ -28,12 +29,14 @@ import {
   MonitorPlay, 
   Star,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Shuffle
 } from "lucide-react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ActiveUsers } from "./active-users"
 import { Logo } from "@/components/logo"
+import { getRandomAnime } from "@/lib/api"
 
 const mainMenuItems = [
   { title: "Home", url: "/", icon: Home },
@@ -55,9 +58,29 @@ interface AppSidebarProps {
 
 export function AppSidebar({ genres = [], user }: AppSidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const router = useRouter();
   const initialGenres = genres.slice(0, 10);
   const additionalGenres = genres.slice(10);
   const hasMoreGenres = genres.length > 10;
+
+  const handleRandomAnime = async () => {
+    if (isLoadingRandom) return;
+    setIsLoadingRandom(true);
+    try {
+      const anime = await getRandomAnime();
+      if (anime && anime.id) {
+        router.push(`/anime/${anime.id}`);
+      } else {
+        // Fallback or error handling
+        console.error("No anime found");
+      }
+    } catch (error) {
+      console.error("Failed to get random anime", error);
+    } finally {
+      setIsLoadingRandom(false);
+    }
+  };
 
   return (
     <Sidebar>
@@ -81,13 +104,17 @@ export function AppSidebar({ genres = [], user }: AppSidebarProps) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+               <SidebarMenuItem>
+                  <SidebarMenuButton onClick={handleRandomAnime} disabled={isLoadingRandom}>
+                    <Shuffle className={isLoadingRandom ? "animate-spin" : ""} />
+                    <span>Random Anime</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarSeparator className="mx-4 my-2" />
-
-        <ActiveUsers />
 
         <SidebarGroup>
           <SidebarGroupLabel>Genre</SidebarGroupLabel>

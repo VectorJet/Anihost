@@ -59,6 +59,7 @@ export function Player({
   const [seekIndicator, setSeekIndicator] = useState<{ side: "left" | "right"; seconds: number } | null>(null);
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showSkipOutro, setShowSkipOutro] = useState(false);
+  const [autoNext, setAutoNext] = useState(true);
   
   // Mobile Gestures State
   const [brightness, setBrightness] = useState(1);
@@ -694,6 +695,12 @@ export function Player({
           setIsPlaying(false);
           syncWatchHistory();
         }}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (autoNext && hasNextEpisode && onNextEpisode) {
+            onNextEpisode();
+          }
+        }}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
       />
@@ -739,10 +746,12 @@ export function Player({
         playbackSpeed={playbackSpeed}
         activeSubtitle={activeSubtitle}
         subtitles={subtitles?.map(s => ({ label: s.label, kind: s.kind }))}
+        autoNext={autoNext}
         onSetTab={setSettingsTab}
         onSetQuality={setQuality}
         onSetSpeed={setSpeed}
         onSetSubtitle={setSubtitle}
+        onToggleAutoNext={() => setAutoNext(!autoNext)}
         onClose={closeSettings}
       />
 

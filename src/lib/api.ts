@@ -3,7 +3,7 @@
 import { SearchResultAnime, SearchSuggestion, SearchFilters, AnimeBasic, HomePageData, AnimeAboutInfo } from "@/types/anime";
 import { cookies } from "next/headers";
 
-const API_BASE_URL = "http://localhost:4001/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001/api/v1";
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const cookieStore = await cookies();
@@ -362,7 +362,9 @@ export async function getAnimeAboutInfo(animeId: string): Promise<AnimeAboutInfo
             episodes: data.episodes || { sub: 0, dub: 0 },
             type: data.type,
             duration: data.duration
-          }
+          },
+          is18Plus: data.is18Plus,
+          rating: data.rating
         },
         moreInfo: {
           japanese: data.title, // or alternativeTitle?
@@ -460,6 +462,18 @@ export async function getEstimatedSchedule(date: string) {
   } catch (error) {
     console.error(`Error fetching schedule for ${date}:`, error);
     return [];
+  }
+}
+
+export async function getRandomAnime() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/anime/random`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch random anime');
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching random anime:", error);
+    return null;
   }
 }
 
@@ -561,5 +575,155 @@ export async function getHomePageData(): Promise<HomePageData> {
         "Sports", "Super Power", "Supernatural", "Thriller", "Vampire"
       ]
     };
+  }
+}
+
+export async function getUserSettings() {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/settings`, { 
+      headers,
+      cache: 'no-store'
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return null;
+  }
+}
+
+export async function updateUserSettings(settings: any) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/settings`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(settings),
+      cache: 'no-store'
+    });
+    if (!res.ok) return { success: false };
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error updating user settings:", error);
+    return { success: false };
+  }
+}
+
+export async function getUserStats() {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { currentActive: 0, peakToday: 0, avgSessionMinutes: 0 };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/stats`, { 
+      headers,
+      cache: 'no-store'
+    });
+    if (!res.ok) return { currentActive: 0, peakToday: 0, avgSessionMinutes: 0 };
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return { currentActive: 0, peakToday: 0, avgSessionMinutes: 0 };
+  }
+}
+
+export async function checkContentAccess(animeId: string, title: string, genres: string[] = [], rating?: string, is18Plus?: boolean) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { allowed: true };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/check-access`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ animeId, title, genres, rating, is18Plus }),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return { allowed: true };
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error checking content access:", error);
+    return { allowed: true };
+  }
+}
+
+// Admin-only functions
+
+export async function getAllUsers() {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return [];
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users`, {
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    return [];
+  }
+}
+
+export async function updateUserParentalControls(userId: string, controls: {
+  safeMode: boolean;
+  ageRestriction: boolean;
+  explicitContent: boolean;
+}) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users/${userId}/parental-controls`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(controls),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      if (res.status === 403) {
+        return { success: false, message: "Admin access required" };
+      }
+      return { success: false, message: "Failed to update parental controls" };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error updating parental controls:", error);
+    return { success: false, message: "An error occurred" };
   }
 }

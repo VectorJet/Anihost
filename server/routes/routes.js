@@ -26,6 +26,7 @@ import * as auth from '../modules/auth/index';
 import * as user from '../modules/user/index';
 import withTryCatch from '@/utils/withTryCatch';
 import { jwt } from 'hono/jwt';
+import { contentFilterMiddleware } from '../middlewares/contentFilter.js';
 
 const router = createRouter();
 
@@ -34,6 +35,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 // Apply JWT middleware to protected routes
 router.use('/auth/me', jwt({ secret: JWT_SECRET, alg: 'HS256' }));
 router.use('/user/*', jwt({ secret: JWT_SECRET, alg: 'HS256' }));
+
+// Apply content filtering to all routes (will only filter for authenticated users with settings)
+router.use('*', contentFilterMiddleware());
 
 const routes = [
   home,

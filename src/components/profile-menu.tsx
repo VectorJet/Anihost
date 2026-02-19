@@ -102,7 +102,10 @@ export function ProfileMenu({ user }: { user?: any }) {
                       <span className="font-medium">Profile</span>
                     </button>
                     {user.role === 'admin' && (
-                      <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100">
+                      <button 
+                        onClick={() => { router.push('/admin'); setIsOpen(false); }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"
+                      >
                         <Settings className="size-4" />
                         <span className="font-medium">Admin Panel</span>
                       </button>

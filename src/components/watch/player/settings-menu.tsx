@@ -5,7 +5,10 @@ import {
   Subtitles, 
   ChevronLeft, 
   Check, 
-  ChevronRight 
+  ChevronRight,
+  ToggleLeft,
+  ToggleRight,
+  SkipForward
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsTab, QualityLevel } from "./types";
@@ -46,11 +49,13 @@ interface SettingsMenuProps {
   playbackSpeed: number;
   activeSubtitle: string | null;
   subtitles?: { label: string; kind: string }[];
+  autoNext: boolean;
   
   onSetTab: (tab: SettingsTab) => void;
   onSetQuality: (index: number) => void;
   onSetSpeed: (speed: number) => void;
   onSetSubtitle: (label: string | null) => void;
+  onToggleAutoNext: () => void;
   onClose: () => void;
 }
 
@@ -63,10 +68,12 @@ export const SettingsMenu = memo(({
   playbackSpeed,
   activeSubtitle,
   subtitles,
+  autoNext,
   onSetTab,
   onSetQuality,
   onSetSpeed,
   onSetSubtitle,
+  onToggleAutoNext,
   onClose
 }: SettingsMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -124,6 +131,23 @@ export const SettingsMenu = memo(({
                 transition={{ duration: 0.15 }}
                 className="p-1"
               >
+                 <MenuButton
+                  onClick={onToggleAutoNext}
+                  className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 hover:bg-white/10 active:bg-white/20 rounded-lg sm:rounded-xl transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <SkipForward className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white/60" strokeWidth={2} />
+                    <span className="font-medium">Auto Next</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-white/50">
+                    {autoNext ? (
+                      <ToggleRight className="h-5 w-5 sm:h-6 sm:w-6 text-primary" strokeWidth={1.5} />
+                    ) : (
+                      <ToggleLeft className="h-5 w-5 sm:h-6 sm:w-6 text-white/30" strokeWidth={1.5} />
+                    )}
+                  </div>
+                </MenuButton>
+
                 <MenuButton
                   onClick={() => onSetTab("quality")}
                   className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-white/90 hover:bg-white/10 active:bg-white/20 rounded-lg sm:rounded-xl transition-colors"

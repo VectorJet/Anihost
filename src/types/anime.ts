@@ -138,6 +138,8 @@ export interface AnimeAboutInfo {
         type: string;
         duration: string;
       };
+      is18Plus?: boolean;
+      rating?: string;
     };
     moreInfo: Record<string, string | string[]>;
   };

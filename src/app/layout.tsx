@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -12,14 +12,31 @@ import Link from "next/link"
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const sfPro = localFont({
+  src: [
+    {
+      path: "../fonts/SF-Pro-Display-Regular.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../fonts/SF-Pro-Display-Medium.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../fonts/SF-Pro-Display-Semibold.otf",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../fonts/SF-Pro-Display-Bold.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-sf-pro",
+  fallback: ["-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -41,7 +58,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${sfPro.variable} antialiased`}
       >
         <ThemeProvider
           attribute="class"
