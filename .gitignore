@@ -39,6 +39,8 @@ test-player.html
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!server/.env.example
 
 # vercel
 .vercel

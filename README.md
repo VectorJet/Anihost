@@ -77,12 +77,23 @@ This repo is configured for split deployment:
 - Frontend (Next.js): Vercel
 - Backend API (Hono): Render
 
+### How It Actually Runs In Production
+
+- Vercel deploys only the Next.js app from repo root using `vercel.json` and `bun run build:web`.
+- Render deploys only `server/` using `render.yaml` + `server/Dockerfile`.
+- API container listens on `PORT=10000` and Render health-checks `/ping`.
+- CORS is controlled by `ORIGIN`, so it must include your Vercel domain.
+- Frontend calls backend through `NEXT_PUBLIC_API_URL`.
+- Example env templates are included:
+  - `.env.example` (frontend)
+  - `server/.env.example` (backend)
+
 ### One-Click Deployment
 
 1. Use these deployment buttons:
 
-[![Deploy API to Render](https://img.shields.io/badge/Deploy%20API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main)
-[![Deploy Frontend to Vercel](https://img.shields.io/badge/Deploy%20Frontend-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1))
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main)
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1))
 
 2. Final wiring:
    - In Vercel, set `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
