@@ -1,11 +1,13 @@
 import { Database } from 'bun:sqlite';
+import { createClient } from '@libsql/client';
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite';
 import { drizzle as drizzleLibsql } from 'drizzle-orm/libsql';
-import { createClient } from '@libsql/client';
-import * as schema from './schema.js';
+import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
 import path from 'path';
+import postgres from 'postgres';
+import * as schema from './schema.js';
 
-const SCHEMA_BOOTSTRAP_DDL = [
+const SQLITE_SCHEMA_BOOTSTRAP_DDL = [
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY NOT NULL,
     username TEXT NOT NULL,
@@ -123,13 +125,136 @@ const SCHEMA_BOOTSTRAP_DDL = [
   `CREATE INDEX IF NOT EXISTS user_pinned_favorites_pinned_at_idx ON user_pinned_favorites(pinned_at)`,
 ];
 
-function resolveDbProvider() {
-  const explicitProvider = (process.env.DB_PROVIDER || '').trim().toLowerCase();
-  const databaseUrl = (
-    process.env.TURSO_DATABASE_URL ||
+const POSTGRES_SCHEMA_BOOTSTRAP_DDL = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY NOT NULL,
+    username TEXT NOT NULL,
+    email TEXT NOT NULL,
+    password TEXT NOT NULL,
+    avatar_url TEXT NOT NULL DEFAULT '',
+    status_message TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    last_active_at TIMESTAMPTZ
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email)`,
+  `CREATE TABLE IF NOT EXISTS watch_history (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    anime_id TEXT NOT NULL,
+    anime_name TEXT NOT NULL DEFAULT '',
+    anime_poster TEXT NOT NULL DEFAULT '',
+    episode_id TEXT NOT NULL,
+    episode_number INTEGER NOT NULL,
+    episode_image TEXT DEFAULT '',
+    progress INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    last_watched_at TIMESTAMPTZ NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_anime_feedback (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    anime_id TEXT NOT NULL,
+    completion_rate REAL NOT NULL DEFAULT 0,
+    rewatch_count INTEGER NOT NULL DEFAULT 0,
+    explicit_rating INTEGER,
+    interaction_count INTEGER NOT NULL DEFAULT 0,
+    last_episode_number INTEGER NOT NULL DEFAULT 1,
+    last_progress INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY(user_id, anime_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS user_anime_feedback_user_id_idx ON user_anime_feedback(user_id)`,
+  `CREATE TABLE IF NOT EXISTS user_interests (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    genre TEXT NOT NULL,
+    score INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(user_id, genre)
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_settings (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    safe_mode BOOLEAN NOT NULL DEFAULT false,
+    age_restriction BOOLEAN NOT NULL DEFAULT false,
+    explicit_content BOOLEAN NOT NULL DEFAULT true,
+    auto_skip_intro BOOLEAN NOT NULL DEFAULT true,
+    notifications BOOLEAN NOT NULL DEFAULT true,
+    auto_play BOOLEAN NOT NULL DEFAULT true,
+    watch_history BOOLEAN NOT NULL DEFAULT true,
+    quality_preference TEXT NOT NULL DEFAULT 'auto',
+    download_quality TEXT NOT NULL DEFAULT 'high',
+    language TEXT NOT NULL DEFAULT 'en',
+    theme TEXT NOT NULL DEFAULT 'system',
+    default_volume INTEGER NOT NULL DEFAULT 70,
+    updated_at TIMESTAMPTZ NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_stats (
+    id TEXT PRIMARY KEY NOT NULL,
+    date TEXT NOT NULL,
+    total_active INTEGER NOT NULL DEFAULT 0,
+    peak_active INTEGER NOT NULL DEFAULT 0,
+    avg_session_minutes INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    user_agent TEXT NOT NULL DEFAULT '',
+    ip TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id)`,
+  `CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions(expires_at)`,
+  `CREATE INDEX IF NOT EXISTS auth_sessions_revoked_at_idx ON auth_sessions(revoked_at)`,
+  `CREATE TABLE IF NOT EXISTS anime_feature_cache (
+    id TEXT PRIMARY KEY NOT NULL,
+    payload TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS anime_feature_cache_updated_at_idx ON anime_feature_cache(updated_at)`,
+  `CREATE TABLE IF NOT EXISTS media_sources (
+    id TEXT PRIMARY KEY NOT NULL,
+    key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    stream_base_url TEXT,
+    domain TEXT,
+    referer_url TEXT,
+    priority INTEGER NOT NULL DEFAULT 100,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS media_sources_key_idx ON media_sources(key)`,
+  `CREATE INDEX IF NOT EXISTS media_sources_type_idx ON media_sources(type)`,
+  `CREATE INDEX IF NOT EXISTS media_sources_priority_idx ON media_sources(priority)`,
+  `CREATE TABLE IF NOT EXISTS user_pinned_favorites (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    anime_id TEXT NOT NULL,
+    anime_name TEXT NOT NULL,
+    anime_poster TEXT NOT NULL DEFAULT '',
+    anime_type TEXT NOT NULL DEFAULT 'TV',
+    pinned_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY(user_id, anime_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS user_pinned_favorites_pinned_at_idx ON user_pinned_favorites(pinned_at)`,
+];
+
+function resolvePostgresDatabaseUrl() {
+  return (
+    process.env.SUPABASE_DATABASE_URL ||
+    process.env.SUPABASE_DB_URL ||
     process.env.DATABASE_URL ||
     ''
   ).trim();
+}
+
+function resolveDbProvider() {
+  const explicitProvider = (process.env.DB_PROVIDER || '').trim().toLowerCase();
+  const databaseUrl = (process.env.TURSO_DATABASE_URL || resolvePostgresDatabaseUrl()).trim();
   const looksLikeTurso =
     databaseUrl.startsWith('libsql://') || databaseUrl.startsWith('https://');
   const looksLikePostgres =
@@ -158,7 +283,7 @@ function resolveDbProvider() {
 }
 
 async function ensureSchemaForLibsql(client) {
-  for (const statement of SCHEMA_BOOTSTRAP_DDL) {
+  for (const statement of SQLITE_SCHEMA_BOOTSTRAP_DDL) {
     await client.execute(statement);
   }
 
@@ -167,7 +292,7 @@ async function ensureSchemaForLibsql(client) {
 }
 
 function ensureSchemaForSqlite(sqlite) {
-  for (const statement of SCHEMA_BOOTSTRAP_DDL) {
+  for (const statement of SQLITE_SCHEMA_BOOTSTRAP_DDL) {
     sqlite.exec(statement);
   }
 
@@ -207,16 +332,46 @@ function ensureUsersStatusMessageColumnForSqlite(sqlite) {
   }
 }
 
+async function ensureSchemaForPostgres(sqlClient) {
+  for (const statement of POSTGRES_SCHEMA_BOOTSTRAP_DDL) {
+    await sqlClient.unsafe(statement);
+  }
+
+  await sqlClient.unsafe(
+    `ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT ''`
+  );
+  await sqlClient.unsafe(
+    `ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS status_message TEXT NOT NULL DEFAULT ''`
+  );
+}
+
 const dbProvider = resolveDbProvider();
 let db;
 
 if (dbProvider === 'supabase') {
-  throw new Error(
-    'DB_PROVIDER=supabase is not implemented yet in this codebase. Use DB_PROVIDER=turso for serverless deployments or DB_PROVIDER=sqlite for local/self-hosting.'
-  );
+  const connectionString = resolvePostgresDatabaseUrl();
+  if (!connectionString) {
+    throw new Error(
+      'Supabase/Postgres requires SUPABASE_DATABASE_URL (or SUPABASE_DB_URL/DATABASE_URL). Set DB_PROVIDER=supabase and provide a Postgres connection string.'
+    );
+  }
+
+  const parsedPoolSize = Number.parseInt(process.env.DB_POOL_MAX || '10', 10);
+  const poolSize = Number.isFinite(parsedPoolSize) && parsedPoolSize > 0 ? parsedPoolSize : 10;
+  const sslMode = (process.env.POSTGRES_SSL_MODE || '').trim().toLowerCase();
+  const ssl = sslMode === 'disable' ? false : 'require';
+
+  const client = postgres(connectionString, {
+    max: poolSize,
+    ssl,
+    prepare: false,
+  });
+
+  await ensureSchemaForPostgres(client);
+  db = drizzlePostgres(client, { schema });
 }
 
-if (dbProvider === 'turso') {
+if (!db && dbProvider === 'turso') {
   const url = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
   if (!url) {
     throw new Error(
@@ -230,7 +385,7 @@ if (dbProvider === 'turso') {
   });
   await ensureSchemaForLibsql(client);
   db = drizzleLibsql(client, { schema });
-} else {
+} else if (!db) {
   const dbPath = process.env.SQLITE_DB_PATH
     ? path.resolve(process.cwd(), process.env.SQLITE_DB_PATH)
     : path.join(import.meta.dir, '..', 'sqlite.db');

@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: anihost-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: DB_PROVIDER
+        value: supabase
+      - key: SUPABASE_DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ORIGIN
+        sync: false
+      - key: AUTH_ACCESS_TOKEN_TTL_SECONDS
+        value: "604800"
+      - key: AUTH_SESSION_TTL_SECONDS
+        value: "604800"
+      - key: AUTH_MAX_SESSIONS_PER_USER
+        value: "5"
+      - key: AUTH_MAX_SESSION_STORE_SIZE
+        value: "10000"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_LIMIT
+        value: "20"
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

@@ -9,7 +9,7 @@ A modern anime streaming app with a Next.js frontend and a Hono API backend.
 - Tailwind CSS + shadcn/ui
 - Hono (Node adapter) API
 - Bun runtime/package manager
-- SQLite (default) or Turso/libSQL
+- SQLite (default), Turso/libSQL, or Supabase/Postgres
 
 ## Monorepo Layout
 
@@ -70,6 +70,53 @@ bun run build
 bun run start
 ```
 
+## Deployment
+
+This repo is configured for split deployment:
+
+- Frontend (Next.js): Vercel
+- Backend API (Hono): Render
+
+### One-Click Deployment
+
+1. Deploy API (Render Blueprint):  
+   https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main
+2. Deploy Frontend (Vercel):  
+   https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1)
+3. Final wiring:
+   - In Vercel, set `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
+   - In Render, set `ORIGIN=https://<your-vercel-domain>`
+
+### Manual Deployment
+
+`render.yaml` is included at the repo root and points to `server/Dockerfile`.
+
+1. In Render, create a **Blueprint** service from this repository.
+2. Render will provision `anihost-api` using the config in `render.yaml`.
+3. Set required secret env vars in Render:
+   - `SUPABASE_DATABASE_URL`
+   - `JWT_SECRET`
+   - `ORIGIN` (your Vercel frontend URL, optionally comma-separated with localhost origins)
+4. Deploy and note the Render API URL (example: `https://anihost-api.onrender.com`).
+
+API health check path: `/ping`
+
+### Deploy Frontend To Vercel
+
+`vercel.json` is included and uses Bun + `build:web`.
+
+1. Import this repository in Vercel.
+2. Set project environment variable:
+   - `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
+3. Deploy.
+
+### Final Wiring
+
+After Vercel gives you the production domain:
+
+1. Update Render `ORIGIN` to include your Vercel domain.
+2. Redeploy Render once after updating `ORIGIN`.
+
 ## Lint
 
 From repository root:
@@ -121,6 +168,12 @@ SQLITE_DB_PATH=server/sqlite.db
 # TURSO_DATABASE_URL=libsql://<db>.turso.io
 # TURSO_AUTH_TOKEN=<token>
 
+# Supabase/Postgres (optional)
+# DB_PROVIDER=supabase
+# SUPABASE_DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
+# DB_POOL_MAX=10
+# POSTGRES_SSL_MODE=require
+
 # Optional Redis cache
 # UPSTASH_REDIS_REST_URL=
 # UPSTASH_REDIS_REST_TOKEN=
@@ -134,7 +187,7 @@ SQLITE_DB_PATH=server/sqlite.db
 - SQLite is the default provider.
 - API bootstrap creates required tables/indexes if missing.
 - `DB_PROVIDER=turso` is supported.
-- `DB_PROVIDER=supabase` is not implemented in this codebase.
+- `DB_PROVIDER=supabase` is supported via direct Postgres connection string.
 
 ## API Docs
 
