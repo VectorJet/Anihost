@@ -118,7 +118,8 @@ export function Player({
     setQualityLevels([]);
     setCurrentQuality(-1);
 
-    const proxyBase = "http://localhost:4001/api/v1/proxy";
+    const publicApiBase = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/$/, "");
+    const proxyBase = `${publicApiBase}/proxy`;
     const proxiedUrl = `${proxyBase}?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer || "")}`;
 
     if (Hls.isSupported()) {

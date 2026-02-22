@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+.git
+.gitignore
+refs
+server/node_modules
+server/sqlite.db
+*.log

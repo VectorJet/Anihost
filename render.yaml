@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: anihost-api
+    name: anihost
     runtime: docker
-    rootDir: server
     dockerfilePath: ./Dockerfile
     healthCheckPath: /ping
     autoDeploy: true
@@ -11,6 +10,12 @@ services:
         value: production
       - key: PORT
         value: "10000"
+      - key: INTERNAL_API_PORT
+        value: "4001"
+      - key: NEXT_PUBLIC_API_URL
+        value: /api/v1
+      - key: API_BASE_URL
+        value: http://127.0.0.1:4001/api/v1
       - key: DB_PROVIDER
         value: supabase
       - key: SUPABASE_DATABASE_URL

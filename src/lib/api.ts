@@ -3,7 +3,29 @@
 import { SearchResultAnime, SearchSuggestion, SearchFilters, AnimeBasic, HomePageData, AnimeAboutInfo } from "@/types/anime";
 import { cookies } from "next/headers";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001/api/v1";
+function resolveApiBaseUrl() {
+  if (process.env.API_BASE_URL) {
+    return process.env.API_BASE_URL;
+  }
+
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    if (
+      process.env.NEXT_PUBLIC_API_URL.startsWith('http://') ||
+      process.env.NEXT_PUBLIC_API_URL.startsWith('https://')
+    ) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
+
+    if (process.env.NEXT_PUBLIC_API_URL.startsWith('/')) {
+      const internalApiPort = process.env.INTERNAL_API_PORT || '4001';
+      return `http://127.0.0.1:${internalApiPort}${process.env.NEXT_PUBLIC_API_URL}`;
+    }
+  }
+
+  return "http://localhost:4001/api/v1";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const cookieStore = await cookies();

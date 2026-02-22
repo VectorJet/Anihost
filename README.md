@@ -72,21 +72,15 @@ bun run start
 
 ## Deployment
 
-This repo is configured for split deployment:
+This repo now follows the same high-level deployment shape as `refs/zenime`:
 
-- Frontend (Next.js): Vercel
-- Backend API (Hono): Render
+- Root `Dockerfile` for Render deployment
+- Root `vercel.json` for Vercel deployment
+- One-click deploy buttons for both platforms
 
-### How It Actually Runs In Production
+### Render (Single Service)
 
-- Vercel deploys only the Next.js app from repo root using `vercel.json` and `bun run build:web`.
-- Render deploys only `server/` using `render.yaml` + `server/Dockerfile`.
-- API container listens on `PORT=10000` and Render health-checks `/ping`.
-- CORS is controlled by `ORIGIN`, so it must include your Vercel domain.
-- Frontend calls backend through `NEXT_PUBLIC_API_URL`.
-- Example env templates are included:
-  - `.env.example` (frontend)
-  - `server/.env.example` (backend)
+Render uses the repository-root `Dockerfile`, starts Next.js + Hono together, and exposes one public URL.
 
 ### One-Click Deployment
 
@@ -98,27 +92,23 @@ This repo is configured for split deployment:
 
 ### Vercel:
 
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1))
-
-3. Final wiring:
-   - In Vercel, set `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
-   - In Render, set `ORIGIN=https://<your-vercel-domain>`
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL)
 
 ### Manual Deployment
 
-`render.yaml` is included at the repo root and points to `server/Dockerfile`.
+`render.yaml` is included at the repo root and points to the root `Dockerfile`.
 
 1. In Render, create a **Blueprint** service from this repository.
-2. Render will provision `anihost-api` using the config in `render.yaml`.
+2. Render will provision `anihost` using the config in `render.yaml`.
 3. Set required secret env vars in Render:
    - `SUPABASE_DATABASE_URL`
    - `JWT_SECRET`
-   - `ORIGIN` (your Vercel frontend URL, optionally comma-separated with localhost origins)
-4. Deploy and note the Render API URL (example: `https://anihost-api.onrender.com`).
+   - `ORIGIN` (optional CORS override)
+4. Deploy and open your app URL (example: `https://anihost.onrender.com`).
 
 API health check path: `/ping`
 
-### Deploy Frontend To Vercel
+### Vercel (Frontend-Only Optional)
 
 `vercel.json` is included and uses Bun + `build:web`.
 
@@ -127,7 +117,7 @@ API health check path: `/ping`
    - `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
 3. Deploy.
 
-### Final Wiring
+### Final Wiring (If Using Both Vercel + Render)
 
 After Vercel gives you the production domain:
 
@@ -155,7 +145,8 @@ bun test
 ### Frontend (`.env` in root)
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:4001/api/v1
+NEXT_PUBLIC_API_URL=/api/v1
+API_BASE_URL=http://127.0.0.1:4001/api/v1
 ```
 
 ### Backend (`server/.env` or exported env vars)
@@ -163,6 +154,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4001/api/v1
 ```bash
 # Server
 PORT=4001
+INTERNAL_API_PORT=4001
 ORIGIN=http://localhost:3000
 
 # Auth

@@ -1,7 +1,7 @@
 import app from './app.js';
 import { serve } from 'bun';
 
-const port = process.env.PORT || 4001;
+const port = process.env.INTERNAL_API_PORT || process.env.PORT || 4001;
 const bunApp = serve({
   port,
   hostname: "0.0.0.0",

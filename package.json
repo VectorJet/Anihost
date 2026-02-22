@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:next\"",
+    "dev": "concurrently \"bun run dev:api\" \"bun run dev:next\"",
     "dev:api": "bun --hot server/index.js",
     "dev:next": "next dev",
     "build:web": "next build",
     "build": "next build && tsc -p tsconfig.server.json",
-    "start": "concurrently \"npm run start:api\" \"npm run start:next\"",
+    "start": "concurrently \"bun run start:api\" \"bun run start:next\"",
     "start:api": "bun server/index.js",
     "start:next": "next start",
     "lint": "eslint"
