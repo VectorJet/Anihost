@@ -84,7 +84,7 @@ export function AppSidebar({ genres = [], user }: AppSidebarProps) {
 
   return (
     <Sidebar>
-      <SidebarHeader className="flex flex-row items-center justify-between p-4">
+      <SidebarHeader className="flex h-16 flex-row items-center justify-between border-b px-4">
         <Link href="/" className="flex items-center gap-1 group-data-[collapsible=icon]:hidden">
           <Logo className="h-6 w-auto" />
         </Link>

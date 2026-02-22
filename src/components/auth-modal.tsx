@@ -1,17 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { login, register } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
+const AVATAR_PRESETS = [
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Akira',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Hina',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Kaito',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Mika',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Sora',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Yuki',
+];
+
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(AVATAR_PRESETS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -24,7 +35,7 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     try {
       const res = isLogin 
         ? await login(email, password)
-        : await register(username, email, password);
+        : await register(username, email, password, avatarUrl);
 
       if (res.success) {
         onClose();
@@ -32,7 +43,7 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       } else {
         setError(res.message || 'Authentication failed');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -52,15 +63,41 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           {!isLogin && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Username</label>
-              <Input 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)} 
-                placeholder="johndoe"
-                required={!isLogin}
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Username</label>
+                <Input 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  placeholder="johndoe"
+                  required={!isLogin}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Avatar (optional)</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVATAR_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      onClick={() => setAvatarUrl(preset)}
+                      className={`overflow-hidden rounded-full border-2 ${
+                        avatarUrl === preset ? 'border-primary' : 'border-transparent'
+                      }`}
+                    >
+                      <Image
+                        src={preset}
+                        alt="avatar preset"
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="h-10 w-10"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
           <div className="space-y-2">
             <label className="text-sm font-medium">Email</label>

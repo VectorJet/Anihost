@@ -1,14 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
 
-const UserSchema = z.object({
-  id: z.any(),
-  username: z.string(),
-  email: z.string().email(),
-  role: z.string(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).passthrough();
-
 export const registerSchema = createRoute({
   method: 'post',
   path: '/auth/register',
@@ -20,6 +11,7 @@ export const registerSchema = createRoute({
             username: z.string().min(3),
             email: z.string().email(),
             password: z.string().min(6),
+            avatarUrl: z.string().url().optional(),
           }),
         },
       },
@@ -98,4 +90,53 @@ export const meSchema = createRoute({
     },
   },
   description: 'Get current user profile',
+});
+
+export const logoutSchema = createRoute({
+  method: 'post',
+  path: '/auth/logout',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.object({
+              success: z.boolean(),
+            }),
+          }),
+        },
+      },
+      description: 'Current session revoked',
+    },
+    401: {
+      description: 'Unauthorized',
+    },
+  },
+  description: 'Logout from current device/session',
+});
+
+export const logoutAllSchema = createRoute({
+  method: 'post',
+  path: '/auth/logout-all',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.object({
+              success: z.boolean(),
+              revokedCount: z.number(),
+            }),
+          }),
+        },
+      },
+      description: 'All user sessions revoked',
+    },
+    401: {
+      description: 'Unauthorized',
+    },
+  },
+  description: 'Logout from all active sessions/devices',
 });

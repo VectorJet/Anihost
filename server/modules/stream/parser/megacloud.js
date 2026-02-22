@@ -1,6 +1,7 @@
 import CryptoJS from 'crypto-js';
 import config from '@/config/config.js';
 import extractToken from './token';
+import { getFallbackProviders } from '../../../services/media-sources.js';
 
 const { baseurl } = config;
 
@@ -13,11 +14,6 @@ const KEY_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 const KEY_URL =
   'https://raw.githubusercontent.com/ryanwtf88/megacloud-keys/refs/heads/master/key.txt';
-
-const FALLBACK_PROVIDERS = [
-  { name: 'megaplay', domain: 'megaplay.buzz' },
-  { name: 'vidwish', domain: 'vidwish.live' },
-];
 
 /* =======================
    FETCH HELPERS (BUN)
@@ -174,7 +170,7 @@ const decryptAES = (encrypted, key) => {
 ======================= */
 
 const getFallbackSource = async (epID, type, serverName) => {
-  const providers = prioritizeFallback(serverName);
+  const providers = await getFallbackProviders(serverName);
 
   for (const provider of providers) {
     try {
@@ -197,17 +193,10 @@ const getFallbackSource = async (epID, type, serverName) => {
   throw new Error('All fallbacks failed');
 };
 
-const prioritizeFallback = (serverName) => {
-  const primary =
-    serverName.toLowerCase() === 'vidsrc' ? FALLBACK_PROVIDERS[0] : FALLBACK_PROVIDERS[1];
-
-  return [primary, ...FALLBACK_PROVIDERS.filter((p) => p !== primary)];
-};
-
 const fetchFallbackHTML = async (provider, epID, type) =>
   fetchText(`https://${provider.domain}/stream/s-2/${epID}/${type}`, {
     headers: {
-      Referer: `https://${provider.domain}/`,
+      Referer: provider.refererUrl || `https://${provider.domain}/`,
       'User-Agent': config.headers['User-Agent'],
     },
   });
@@ -217,7 +206,7 @@ const fetchFallbackSources = async (provider, id) => {
     headers: {
       ...config.headers,
       'X-Requested-With': 'XMLHttpRequest',
-      Referer: `https://${provider.domain}/`,
+      Referer: provider.refererUrl || `https://${provider.domain}/`,
     },
   });
 

@@ -4,10 +4,10 @@ export const proxySchema = createRoute({
   method: 'get',
   path: '/proxy',
   tags: ['Proxy'],
-  summary: 'Proxy a request with custom headers',
+  summary: 'Proxy stream/media requests with playlist rewriting',
   request: {
     query: z.object({
-      url: z.string().openapi({
+      url: z.string().trim().min(1).openapi({
         param: {
           name: 'url',
           in: 'query',

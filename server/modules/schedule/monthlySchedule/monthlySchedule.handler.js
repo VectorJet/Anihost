@@ -47,13 +47,25 @@ export default async function monthyScheduleHandler(c) {
         Referer: config.baseurl + '/home',
       },
     });
+    if (!res.ok) {
+      return { meta, response: [] };
+    }
 
-    const data = await res.json();
+    const rawBody = await res.text();
 
-    const response = monthlyScheduleExtract(data.html);
+    let htmlSnippet = '';
+    try {
+      const data = JSON.parse(rawBody);
+      htmlSnippet = typeof data?.html === 'string' ? data.html : '';
+    } catch {
+      // Upstream can occasionally return non-JSON content
+      htmlSnippet = '';
+    }
+
+    const response = monthlyScheduleExtract(htmlSnippet);
     return { meta, response };
   } catch (error) {
-    console.error(error.message);
-    throw new validationError('page not found');
+    console.error('Schedule upstream error:', error.message);
+    return { meta, response: [] };
   }
 }

@@ -1,45 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { getAllUsers, updateUserParentalControls } from '@/lib/api';
-import { Shield, Users, Loader2, Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { deleteAllUsers, deleteUser, getAllUsers, type AdminUser } from '@/lib/api';
+import { Loader2, Settings2, Trash2, Users } from 'lucide-react';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  createdAt: Date;
-  lastActiveAt: Date | null;
-  settings: {
-    userId: string;
-    safeMode: boolean;
-    ageRestriction: boolean;
-    explicitContent: boolean;
-  };
-}
+type UserSortBy = 'createdAt' | 'lastActiveAt' | 'username' | 'email' | 'role';
+type UserSortOrder = 'asc' | 'desc';
+
+const SORT_OPTIONS: Array<{ label: string; value: UserSortBy }> = [
+  { label: 'Created Date', value: 'createdAt' },
+  { label: 'Last Active', value: 'lastActiveAt' },
+  { label: 'Username', value: 'username' },
+  { label: 'Email', value: 'email' },
+  { label: 'Role', value: 'role' },
+];
 
 export function UserManagement() {
+  const router = useRouter();
   const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>([]);
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<UserSortBy>('createdAt');
+  const [order, setOrder] = useState<UserSortOrder>('desc');
 
-  const loadUsers = async () => {
+  const query = useMemo(() => search.trim(), [search]);
+
+  const loadUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getAllUsers();
-      setUsers(data);
+      const rows = await getAllUsers({ sortBy, order, search: query || undefined });
+      setUsers(rows);
     } catch (error) {
       console.error('Error loading users:', error);
       toast({
@@ -50,203 +51,193 @@ export function UserManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [order, query, sortBy, toast]);
 
-  const handleToggle = async (userId: string, field: 'safeMode' | 'ageRestriction' | 'explicitContent', value: boolean) => {
-    setSavingUserId(userId);
-    
-    const user = users.find(u => u.id === userId);
-    if (!user) return;
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      void loadUsers();
+    }, 250);
 
-    const updatedControls = {
-      safeMode: user.settings.safeMode,
-      ageRestriction: user.settings.ageRestriction,
-      explicitContent: user.settings.explicitContent,
-      [field]: value,
-    };
+    return () => window.clearTimeout(timerId);
+  }, [loadUsers]);
 
+  async function handleDeleteUser(userId: string, username: string) {
+    const confirmed = window.confirm(`Delete user "${username}"? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingUserId(userId);
     try {
-      const result = await updateUserParentalControls(userId, updatedControls);
-      
+      const result = await deleteUser(userId);
       if (result.success) {
-        setUsers(users.map(u => 
-          u.id === userId 
-            ? { ...u, settings: { ...u.settings, ...updatedControls } }
-            : u
-        ));
-        
         toast({
-          title: 'Success',
-          description: `Parental controls updated for ${user.username}`,
+          title: 'User deleted',
+          description: `${username} has been removed.`,
         });
+        await loadUsers();
       } else {
         toast({
-          title: 'Error',
-          description: result.message || 'Failed to update parental controls',
+          title: 'Delete failed',
+          description: result.message || 'Unable to delete user',
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Error updating parental controls:', error);
-      toast({
-        title: 'Error',
-        description: 'An error occurred while updating parental controls',
-        variant: 'destructive',
-      });
     } finally {
-      setSavingUserId(null);
+      setDeletingUserId(null);
     }
-  };
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return 'Never';
-    return new Date(date).toLocaleString();
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
   }
 
+  async function handleDeleteAllUsers() {
+    const confirmation = window.prompt('Type DELETE ALL to remove all non-admin users.');
+    if (confirmation !== 'DELETE ALL') return;
+
+    setIsDeletingAll(true);
+    try {
+      const result = await deleteAllUsers(false);
+      if (result.success) {
+        toast({
+          title: 'Bulk delete complete',
+          description: `Deleted ${result.deletedCount || 0} user(s).`,
+        });
+        await loadUsers();
+      } else {
+        toast({
+          title: 'Bulk delete failed',
+          description: result.message || 'Unable to delete users',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsDeletingAll(false);
+    }
+  }
+
+  const formatDate = (value: string | Date | null) => {
+    if (!value) return 'Never';
+    return new Date(value).toLocaleString();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            <CardTitle>User Management</CardTitle>
+        <CardHeader className="space-y-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              User Management
+            </CardTitle>
+            <CardDescription>
+              Sort, review, and manage long user lists
+            </CardDescription>
           </div>
-          <CardDescription>
-            Manage parental controls for all users
-          </CardDescription>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search username or email"
+              className="md:col-span-2"
+            />
+
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as UserSortBy)}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  Sort: {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={order}
+              onChange={(event) => setOrder(event.target.value as UserSortOrder)}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="desc">Order: Descending</option>
+              <option value="asc">Order: Ascending</option>
+            </select>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Total Users: {users.length}
-            </div>
+
+        <CardContent className="flex items-center justify-between gap-3">
+          <div className="text-sm text-muted-foreground">
+            Showing {users.length} user(s)
           </div>
+
+          <Button
+            variant="destructive"
+            onClick={handleDeleteAllUsers}
+            disabled={isDeletingAll}
+          >
+            {isDeletingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Delete All Users
+          </Button>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
-        {users.map((user) => (
-          <Card key={user.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
+      <Card>
+        <CardContent className="pt-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-1">
+              {users.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{user.username}</p>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <div className="text-xs text-muted-foreground">
+                      <span>Created: {formatDate(user.createdAt)}</span>
+                      <span className="mx-2">|</span>
+                      <span>Last active: {formatDate(user.lastActiveAt)}</span>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">{user.username}</CardTitle>
-                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {user.role}
-                    </Badge>
-                  </div>
-                  <CardDescription>{user.email}</CardDescription>
-                  <div className="text-xs text-muted-foreground">
-                    Last active: {formatDate(user.lastActiveAt)}
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/admin/users/${user.id}`)}
+                    >
+                      <Settings2 className="mr-2 h-4 w-4" />
+                      User Settings
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDeleteUser(user.id, user.username)}
+                      disabled={deletingUserId === user.id}
+                    >
+                      {deletingUserId === user.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Delete
+                    </Button>
                   </div>
                 </div>
-                {savingUserId === user.id && (
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Shield className="w-4 h-4" />
-                  Parental Controls
-                </div>
-                
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <Label htmlFor={`safe-mode-${user.id}`} className="text-sm font-medium">
-                        Safe Mode
-                      </Label>
-                      <div className="text-xs text-muted-foreground">
-                        Block R+ and mature content
-                      </div>
-                    </div>
-                    <Switch
-                      id={`safe-mode-${user.id}`}
-                      checked={user.settings.safeMode}
-                      onCheckedChange={(checked) => handleToggle(user.id, 'safeMode', checked)}
-                      disabled={savingUserId === user.id}
-                    />
-                  </div>
+              ))}
 
-                  <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <Label htmlFor={`age-restriction-${user.id}`} className="text-sm font-medium">
-                        Age Restriction
-                      </Label>
-                      <div className="text-xs text-muted-foreground">
-                        Restrict to 13+ content
-                      </div>
-                    </div>
-                    <Switch
-                      id={`age-restriction-${user.id}`}
-                      checked={user.settings.ageRestriction}
-                      onCheckedChange={(checked) => handleToggle(user.id, 'ageRestriction', checked)}
-                      disabled={savingUserId === user.id}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <Label htmlFor={`explicit-content-${user.id}`} className="text-sm font-medium">
-                        Explicit Content
-                      </Label>
-                      <div className="text-xs text-muted-foreground">
-                        Allow 18+ content
-                      </div>
-                    </div>
-                    <Switch
-                      id={`explicit-content-${user.id}`}
-                      checked={user.settings.explicitContent}
-                      onCheckedChange={(checked) => handleToggle(user.id, 'explicitContent', checked)}
-                      disabled={savingUserId === user.id}
-                    />
-                  </div>
+              {users.length === 0 && (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No users found with current filters.
                 </div>
-
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="flex items-center gap-1">
-                    {user.settings.safeMode ? (
-                      <Check className="w-3 h-3 text-green-500" />
-                    ) : (
-                      <X className="w-3 h-3 text-muted-foreground" />
-                    )}
-                    <span>Safe Mode</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {user.settings.ageRestriction ? (
-                      <Check className="w-3 h-3 text-green-500" />
-                    ) : (
-                      <X className="w-3 h-3 text-muted-foreground" />
-                    )}
-                    <span>Age Restricted</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {user.settings.explicitContent ? (
-                      <Check className="w-3 h-3 text-green-500" />
-                    ) : (
-                      <X className="w-3 h-3 text-red-500" />
-                    )}
-                    <span>Explicit Allowed</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

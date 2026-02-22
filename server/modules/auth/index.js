@@ -16,4 +16,14 @@ export const me = {
   handler: handler.meHandler,
 };
 
-export const authRoutes = [register, login, me];
+export const logout = {
+  schema: schema.logoutSchema,
+  handler: handler.logoutHandler,
+};
+
+export const logoutAll = {
+  schema: schema.logoutAllSchema,
+  handler: handler.logoutAllHandler,
+};
+
+export const authRoutes = [register, login, me, logout, logoutAll];

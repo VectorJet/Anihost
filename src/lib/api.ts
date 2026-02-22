@@ -60,20 +60,26 @@ export async function login(email: string, password: string) {
   }
 }
 
-export async function register(username: string, email: string, password: string) {
+export async function register(
+  username: string,
+  email: string,
+  password: string,
+  avatarUrl?: string
+) {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, avatarUrl }),
     });
     const json = await res.json();
     if (json.success) {
       const cookieStore = await cookies();
       cookieStore.set("auth_token", json.data.token, {
         httpOnly: true,
-        secure: false, // Set to false for better compatibility in self-hosted environments without HTTPS
+        secure: process.env.NODE_ENV === 'production',
         sameSite: "lax",
+        path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days
       });
     }
@@ -107,7 +113,92 @@ export async function getMe() {
   }
 }
 
+export async function updateMyAvatar(avatarUrl: string) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/avatar`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ avatarUrl }),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to update avatar" };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("updateMyAvatar error:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function updateProfileStatus(statusMessage: string) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/profile-status`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ statusMessage }),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to update status" };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("updateProfileStatus error:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
 export async function logout() {
+  const headers = await getAuthHeaders();
+  if (headers["Authorization"]) {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers,
+      });
+    } catch (error) {
+      console.error("logout error:", error);
+    }
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.delete("auth_token");
+}
+
+export async function logoutAllSessions() {
+  const headers = await getAuthHeaders();
+  if (headers["Authorization"]) {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout-all`, {
+        method: "POST",
+        headers,
+      });
+    } catch (error) {
+      console.error("logoutAllSessions error:", error);
+    }
+  }
+
   const cookieStore = await cookies();
   cookieStore.delete("auth_token");
 }
@@ -120,6 +211,7 @@ export async function updateWatchHistory(data: {
   episodeNumber: number;
   progress: number;
   duration: number;
+  explicitRating?: number;
   genres?: string[];
 }) {
   try {
@@ -152,6 +244,7 @@ export async function getWatchHistory() {
       episodeNumber: item.episodeNumber,
       episodeId: item.episodeId,
       episodeImage: item.episodeImage,
+      updatedAt: item.lastWatchedAt ? new Date(item.lastWatchedAt).getTime() : Date.now(),
       type: "TV", // Fallback
       episodes: { sub: 0, dub: 0 }
     }));
@@ -669,16 +762,261 @@ export async function checkContentAccess(animeId: string, title: string, genres:
   }
 }
 
-// Admin-only functions
+export interface ProfileStats {
+  hoursWatched: number;
+  completionRate: number;
+  favoriteGenres: string[];
+  titlesWatched: number;
+  currentlyWatching: Array<{
+    id: string;
+    name: string;
+    poster: string;
+    episodeId: string;
+    episodeNumber: number;
+    progress: number;
+    duration: number;
+    lastWatchedAt: Date | string;
+  }>;
+}
 
-export async function getAllUsers() {
+export interface PinnedFavorite {
+  userId: string;
+  animeId: string;
+  animeName: string;
+  animePoster: string;
+  animeType: string;
+  pinnedAt: Date | string;
+}
+
+export interface ProfileByUsernameResponse {
+  profile: {
+    id: string;
+    username: string;
+    email: string;
+    avatarUrl: string;
+    statusMessage: string;
+    createdAt: Date | string;
+  };
+  isOwnProfile: boolean;
+  stats: ProfileStats;
+  pinnedFavorites: PinnedFavorite[];
+  recentActivity: Array<{
+    animeId: string;
+    animeName: string;
+    animePoster: string;
+    episodeId: string;
+    episodeNumber: number;
+    progress: number;
+    duration: number;
+    lastWatchedAt: Date | string;
+  }>;
+}
+
+export async function getProfileStats(): Promise<ProfileStats | null> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/profile-stats`, {
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching profile stats:", error);
+    return null;
+  }
+}
+
+export async function getPinnedFavorites(): Promise<PinnedFavorite[]> {
   try {
     const headers = await getAuthHeaders();
     if (!headers["Authorization"]) {
       return [];
     }
 
-    const res = await fetch(`${API_BASE_URL}/user/admin/users`, {
+    const res = await fetch(`${API_BASE_URL}/user/pinned-favorites`, {
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (error) {
+    console.error("Error fetching pinned favorites:", error);
+    return [];
+  }
+}
+
+export async function getProfileByUsername(
+  username: string
+): Promise<ProfileByUsernameResponse | null> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
+    const encodedUsername = encodeURIComponent(username);
+    const res = await fetch(`${API_BASE_URL}/user/profile/${encodedUsername}`, {
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching profile by username:", error);
+    return null;
+  }
+}
+
+export async function pinFavorite(input: {
+  animeId: string;
+  animeName: string;
+  animePoster?: string;
+  animeType?: string;
+}) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/pinned-favorites`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { success: false, message: json?.message || "Failed to pin favorite" };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error pinning favorite:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function unpinFavorite(animeId: string) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/pinned-favorites/${animeId}`, {
+      method: "DELETE",
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to remove favorite" };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error removing favorite:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+// Admin-only functions
+
+export interface AdminUserSettings {
+  userId: string;
+  safeMode: boolean;
+  ageRestriction: boolean;
+  explicitContent: boolean;
+  autoSkipIntro: boolean;
+  notifications: boolean;
+  autoPlay: boolean;
+  watchHistory: boolean;
+  qualityPreference: string;
+  downloadQuality: string;
+  language: string;
+  theme: string;
+  defaultVolume: number;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  createdAt: Date | string;
+  lastActiveAt: Date | string | null;
+  settings: AdminUserSettings;
+}
+
+export interface MediaSource {
+  id: string;
+  key: string;
+  name: string;
+  type: 'embedded' | 'fallback';
+  streamBaseUrl: string | null;
+  domain: string | null;
+  refererUrl: string | null;
+  priority: number;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface ServerHealth {
+  status: string;
+  timestamp: string;
+  uptimeSeconds: number;
+  totalUsers: number;
+  activeUsers: number;
+  activeStreams: number;
+  memory: {
+    rssBytes: number;
+    heapUsedBytes: number;
+    heapTotalBytes: number;
+  };
+  storage: {
+    dbProvider: string;
+    databasePath: string | null;
+    databaseBytes: number | null;
+    diskTotalBytes: number | null;
+    diskFreeBytes: number | null;
+  };
+}
+
+export async function getAllUsers(params?: {
+  sortBy?: 'createdAt' | 'lastActiveAt' | 'username' | 'email' | 'role';
+  order?: 'asc' | 'desc';
+  search?: string;
+}): Promise<AdminUser[]> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return [];
+    }
+
+    const query = new URLSearchParams();
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.order) query.set('order', params.order);
+    if (params?.search) query.set('search', params.search);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users${suffix}`, {
       headers,
       cache: 'no-store'
     });
@@ -689,6 +1027,59 @@ export async function getAllUsers() {
   } catch (error) {
     console.error("Error fetching all users:", error);
     return [];
+  }
+}
+
+export async function getAdminUserById(userId: string): Promise<AdminUser | null> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users/${userId}`, {
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching admin user:", error);
+    return null;
+  }
+}
+
+export async function updateAdminUserSettings(userId: string, settings: Partial<AdminUserSettings>) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users/${userId}/settings`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(settings),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      if (res.status === 403) {
+        return { success: false, message: "Admin access required" };
+      }
+      return { success: false, message: "Failed to update user settings" };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error updating admin user settings:", error);
+    return { success: false, message: "An error occurred" };
   }
 }
 
@@ -725,5 +1116,169 @@ export async function updateUserParentalControls(userId: string, controls: {
   } catch (error) {
     console.error("Error updating parental controls:", error);
     return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function deleteUser(userId: string) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users/${userId}`, {
+      method: "DELETE",
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        message: json?.message || "Failed to delete user",
+      };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function deleteAllUsers(includeAdmins = false) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated", deletedCount: 0 };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/users/delete-all`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ includeAdmins }),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to delete users", deletedCount: 0 };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error deleting all users:", error);
+    return { success: false, message: "An error occurred", deletedCount: 0 };
+  }
+}
+
+export async function getMediaSources(): Promise<MediaSource[]> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return [];
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/media-sources`, {
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching media sources:", error);
+    return [];
+  }
+}
+
+export async function createMediaSource(source: {
+  key: string;
+  name: string;
+  type: 'embedded' | 'fallback';
+  streamBaseUrl?: string;
+  domain?: string;
+  refererUrl?: string;
+  priority?: number;
+  isActive?: boolean;
+}) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/media-sources`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(source),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { success: false, message: json?.message || "Failed to create media source" };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error creating media source:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function removeMediaSource(sourceId: string) {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/media-sources/${sourceId}`, {
+      method: "DELETE",
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to remove media source" };
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error("Error removing media source:", error);
+    return { success: false, message: "An error occurred" };
+  }
+}
+
+export async function getServerHealth(): Promise<ServerHealth | null> {
+  try {
+    const headers = await getAuthHeaders();
+    if (!headers["Authorization"]) {
+      return null;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/user/admin/server-health`, {
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching server health:", error);
+    return null;
   }
 }

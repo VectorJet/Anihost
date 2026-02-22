@@ -7,6 +7,38 @@ import { AppError } from '../utils/errors';
 import zodValidationHook from '../middlewares/hook.js';
 import { htmlAsString } from '@/utils/htmlAsString';
 
+function decodeJwtPayload(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const payload = Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+function getRateLimitKey(c) {
+  const authHeader = c.req.header('authorization') || c.req.header('Authorization');
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    const payload = decodeJwtPayload(token);
+    if (payload?.id && payload?.sid) {
+      return `uid:${payload.id}:sid:${payload.sid}`;
+    }
+    if (payload?.id) {
+      return `uid:${payload.id}`;
+    }
+  }
+
+  const forwarded = c.req.header('x-forwarded-for');
+  const realIp = c.req.header('x-real-ip');
+  const ip = (forwarded || realIp || '').split(',')[0].trim();
+  return ip || 'unknown';
+}
+
 export function createRouter() {
   return new OpenAPIHono({
     defaultHook: zodValidationHook,
@@ -26,10 +58,7 @@ export default function createApp() {
     windowMs: process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000,
     limit: process.env.RATE_LIMIT_LIMIT || 20,
     standardHeaders: 'draft-6', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
-    keyGenerator: (c) => {
-      const ip = (c.req.header('x-forwarded-for') || '').split(',')[0].trim();
-      return ip;
-    },
+    keyGenerator: getRateLimitKey,
   });
 
   const app = createRouter()

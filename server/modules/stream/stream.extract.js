@@ -1,20 +1,20 @@
 import megacloud from './parser/megacloud.js';
 import { getServers } from '../servers/servers.handler.js';
+import { getEmbeddedSourceMap } from '../../services/media-sources.js';
 
 /* =======================
    CONSTANTS
 ======================= */
-const MEGAPLAY = 'https://megaplay.buzz/stream/s-2/';
-const VIDWISH = 'https://vidwish.live/stream/s-2/';
 const TYPE_DUB = 'dub';
-const REFERER = 'https://megacloud.blog/';
 
 /* =======================
    MAIN FUNCTION
 ======================= */
 export default async function streamExtract({ selectedServer, id }) {
-  if (isEmbeddedStream(selectedServer)) {
-    return buildEmbeddedStream(selectedServer, id);
+  const embeddedSources = await getEmbeddedSourceMap();
+
+  if (isEmbeddedStream(selectedServer, embeddedSources)) {
+    return buildEmbeddedStream(selectedServer, id, embeddedSources);
   }
 
   const stream = await megacloud({ selectedServer, id });
@@ -24,26 +24,45 @@ export default async function streamExtract({ selectedServer, id }) {
     await attachSubtitlesFromSub(stream, selectedServer, id);
   }
 
-  return { ...stream, referer: REFERER };
+  return {
+    ...stream,
+    referer: getDefaultReferer(embeddedSources),
+  };
 }
 
 /* =======================
    HELPERS
 ======================= */
 
-const isEmbeddedStream = (server) => server.name === 'megaplay' || server.name === 'vidwish';
+const isEmbeddedStream = (server, embeddedSources) =>
+  embeddedSources.has(server.name.toLowerCase());
 
-const buildEmbeddedStream = (server, id) => {
+const buildEmbeddedStream = (server, id, embeddedSources) => {
   const episodeId = id.split('ep=').pop();
+  const source = embeddedSources.get(server.name.toLowerCase());
+
+  if (!source?.streamBaseUrl) {
+    return null;
+  }
 
   const END_PATH = `${episodeId}/${server.type}`;
 
-  const END_URL = server.name === 'megaplay' ? MEGAPLAY + END_PATH : VIDWISH + END_PATH;
+  const END_URL = `${source.streamBaseUrl}${END_PATH}`;
 
   return {
     streamingLink: END_URL,
     servers: server.name,
   };
+};
+
+const getDefaultReferer = (embeddedSources) => {
+  const primary = embeddedSources.get('megaplay');
+  if (primary?.refererUrl) {
+    return primary.refererUrl;
+  }
+
+  const first = [...embeddedSources.values()][0];
+  return first?.refererUrl || 'https://megacloud.blog/';
 };
 
 const hasFile = (stream) => Boolean(stream?.link?.file);

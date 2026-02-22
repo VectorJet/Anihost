@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SearchTrigger } from "@/components/search-trigger"
+import { SidebarHeaderTrigger } from "@/components/sidebar-header-trigger"
 import { getHomePageData, getMe } from "@/lib/api"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Logo } from "@/components/logo"
@@ -68,9 +69,8 @@ export default async function RootLayout({
           <SidebarProvider>
             <AppSidebar genres={genres} user={user} />
             <SidebarInset>
-              <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-                <div className="w-px h-6 bg-border mx-2" />
+              <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <SidebarHeaderTrigger />
                 <Link href="/" className="flex items-center gap-1">
                   <Logo className="h-7 w-auto mb-1" />
                   <h1 className="text-xl font-bold tracking-tight">nihost</h1>
