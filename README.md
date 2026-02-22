@@ -92,10 +92,15 @@ This repo is configured for split deployment:
 
 1. Use these deployment buttons:
 
+### Render:
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main)
+
+### Vercel:
+
 [![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1))
 
-2. Final wiring:
+3. Final wiring:
    - In Vercel, set `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
    - In Render, set `ORIGIN=https://<your-vercel-domain>`
 
