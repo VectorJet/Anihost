@@ -1,62 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Anihost
 
-## Getting Started
+A modern anime streaming app with a Next.js frontend and a Hono API backend.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Tailwind CSS + shadcn/ui
+- Hono (Node adapter) API
+- Bun runtime/package manager
+- SQLite (default) or Turso/libSQL
+
+## Monorepo Layout
+
+- `src/` - Next.js app, components, client/server actions
+- `server/` - Hono API, DB, streaming modules, auth, admin endpoints
+- `public/` - static assets
+- `refs/` - local references/supporting files
+
+## Core Features
+
+- Anime browsing/search, watch pages, streaming source extraction
+- Authentication with JWT + DB-backed sessions
+- MAL-style profile pages
+  - watch history
+  - currently watching
+  - stats (hours watched, completion rate, genres)
+  - pinned top favorites
+  - recent activity and friends sections
+- Admin panel
+  - user management (sort/search/delete/delete-all)
+  - per-user settings screen
+  - media source management (add/remove)
+  - server health panel (uptime/memory/storage/active streams/users)
+
+## Requirements
+
+- Bun (required)
+- Node-compatible environment for Next.js/Hono runtime
+
+## Install
+
+From repository root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cd server && bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Run In Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Database Providers (API)
-
-The API supports these DB modes:
-
-- `sqlite` (default): local/self-hosted file DB.
-- `turso`: serverless SQLite via libSQL.
-
-Environment variables:
+From repository root:
 
 ```bash
-# Local / self-hosted
+bun run dev
+```
+
+This starts:
+
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:4001`
+
+## Build And Start
+
+From repository root:
+
+```bash
+bun run build
+bun run start
+```
+
+## Lint
+
+From repository root:
+
+```bash
+bun run lint
+```
+
+Backend-only lint/test:
+
+```bash
+cd server
+bun run lint
+bun test
+```
+
+## Environment Variables
+
+### Frontend (`.env` in root)
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:4001/api/v1
+```
+
+### Backend (`server/.env` or exported env vars)
+
+```bash
+# Server
+PORT=4001
+ORIGIN=http://localhost:3000
+
+# Auth
+JWT_SECRET=change-me
+AUTH_ACCESS_TOKEN_TTL_SECONDS=604800
+AUTH_SESSION_TTL_SECONDS=604800
+AUTH_MAX_SESSIONS_PER_USER=5
+AUTH_MAX_SESSION_STORE_SIZE=10000
+
+# Rate limiting
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_LIMIT=20
+
+# DB provider (sqlite default)
 DB_PROVIDER=sqlite
 SQLITE_DB_PATH=server/sqlite.db
 
-# Turso / libSQL
-DB_PROVIDER=turso
-TURSO_DATABASE_URL=libsql://<your-db>.turso.io
-TURSO_AUTH_TOKEN=<your-token>
+# Turso/libSQL (optional)
+# DB_PROVIDER=turso
+# TURSO_DATABASE_URL=libsql://<db>.turso.io
+# TURSO_AUTH_TOKEN=<token>
+
+# Optional Redis cache
+# UPSTASH_REDIS_REST_URL=
+# UPSTASH_REDIS_REST_TOKEN=
+
+# Optional proxy host allowlist
+# PROXY_ALLOWED_HOSTS=example.com,cdn.example.com
 ```
 
-Notes:
+## Database Notes
 
-- API bootstrap will auto-create required tables/indexes if missing.
-- Session/auth is DB-backed now (`auth_sessions`), so multi-user sessions survive restarts.
-- `DB_PROVIDER=supabase` is not implemented yet in this codebase (requires a Postgres schema/query layer migration).
+- SQLite is the default provider.
+- API bootstrap creates required tables/indexes if missing.
+- `DB_PROVIDER=turso` is supported.
+- `DB_PROVIDER=supabase` is not implemented in this codebase.
+
+## API Docs
+
+Run the app and open the API docs route exposed by Hono (configured in `server/lib/configure-docs.js`).
+
+## Scripts (root)
+
+- `bun run dev` - run frontend + API in parallel
+- `bun run build` - Next.js build + server TypeScript check
+- `bun run start` - start frontend + API in production mode
+- `bun run lint` - run ESLint
+
+## Scripts (`server/`)
+
+- `bun run dev` - Hono API in watch mode
+- `bun run start` - Hono API production mode
+- `bun run lint` - lint backend
+- `bun test` - run backend tests
+
+## Notes
+
+- Use Bun instead of npm/yarn/pnpm for dependency and script workflows.
+- If streaming providers change upstream behavior, update source extractors under `server/modules/stream/`.
