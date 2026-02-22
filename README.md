@@ -79,11 +79,12 @@ This repo is configured for split deployment:
 
 ### One-Click Deployment
 
-1. Deploy API (Render Blueprint):  
-   https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main
-2. Deploy Frontend (Vercel):  
-   https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1)
-3. Final wiring:
+1. Use these deployment buttons:
+
+[![Deploy API to Render](https://img.shields.io/badge/Deploy%20API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/VectorJet/Anihost&branch=main)
+[![Deploy Frontend to Vercel](https://img.shields.io/badge/Deploy%20Frontend-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/VectorJet/Anihost&project-name=anihost&env=NEXT_PUBLIC_API_URL&envDescription=Public+API+base+URL+from+Render+(include+/api/v1))
+
+2. Final wiring:
    - In Vercel, set `NEXT_PUBLIC_API_URL=https://<your-render-domain>/api/v1`
    - In Render, set `ORIGIN=https://<your-vercel-domain>`
 
