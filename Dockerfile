@@ -7,7 +7,7 @@ COPY server/package.json server/bun.lock ./server/
 
 RUN bun install --frozen-lockfile \
   && cd server \
-  && bun install --frozen-lockfile
+  && bun install --frozen-lockfile --production --ignore-scripts
 
 COPY . .
 
