@@ -456,7 +456,8 @@ export async function getGenreAnime(genre: string, page: number = 1) {
 
 export async function getAnimeAboutInfo(animeId: string): Promise<AnimeAboutInfo | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/anime/${animeId}`, {
+    const id = animeId.split("::")[0];
+    const res = await fetch(`${API_BASE_URL}/anime/${id}`, {
       next: { revalidate: 3600 }
     });
     if (!res.ok) throw new Error('Failed to fetch anime info');
@@ -512,7 +513,18 @@ export async function getAnimeAboutInfo(animeId: string): Promise<AnimeAboutInfo
 
 export async function getAnimeEpisodes(animeId: string) {
   try {
-    const res = await fetch(`${API_BASE_URL}/episodes/${animeId}`, {
+    let id = animeId;
+    let ep = "";
+
+    // If animeId contains ::ep=, it's a specific episode ID
+    if (animeId.includes("::ep=")) {
+      const parts = animeId.split("::ep=");
+      id = parts[0];
+      ep = parts[1];
+    }
+
+    const url = `${API_BASE_URL}/episodes/${id}${ep ? `?ep=${ep}` : ""}`;
+    const res = await fetch(url, {
       next: { revalidate: 300 }
     });
     if (!res.ok) throw new Error('Failed to fetch episodes');
@@ -545,9 +557,52 @@ export async function getAnimeEpisodeServers(episodeId: string) {
   }
 }
 
-export async function getEpisodeSources(episodeId: string, server: string = "megacloud", category: string = "sub") {
+export interface EpisodeSourceData {
+  id?: string;
+  type?: 'sub' | 'dub';
+  link?: {
+    file: string;
+    type: string;
+  };
+  tracks?: {
+    file: string;
+    label: string;
+    kind: string;
+    default?: boolean;
+  }[];
+  intro?: {
+    start: number;
+    end: number;
+  } | null;
+  outro?: {
+    start: number;
+    end: number;
+  } | null;
+  server?: string;
+  referer?: string;
+  streamingLink?: string;
+  servers?: string;
+  usedEmbeddedFallback?: boolean;
+}
+
+export async function getEpisodeSources(
+  episodeId: string,
+  server: string = "megacloud",
+  category: string = "sub",
+  episodeNumber?: number
+): Promise<EpisodeSourceData | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stream?id=${encodeURIComponent(episodeId)}&server=${server}&type=${category}`, {
+    const params = new URLSearchParams({
+      id: episodeId,
+      server,
+      type: category,
+    });
+
+    if (episodeNumber) {
+      params.set('number', String(episodeNumber));
+    }
+
+    const res = await fetch(`${API_BASE_URL}/stream?${params.toString()}`, {
       cache: 'no-store'
     });
     if (!res.ok) throw new Error('Failed to fetch sources');

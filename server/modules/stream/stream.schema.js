@@ -40,6 +40,7 @@ const streamSchema = createRoute({
       server: z.string().default('megacloud'),
       type: z.enum(['sub', 'dub']).default('sub'),
       id: z.string().openapi({ examples: someAnimes.episodesIds }),
+      number: z.coerce.number().int().positive().optional(),
     }),
   },
   responses: {

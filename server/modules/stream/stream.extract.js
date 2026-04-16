@@ -1,4 +1,5 @@
 import megacloud from './parser/megacloud.js';
+import animekaiFallback from './parser/animekai.js';
 import { getServers } from '../servers/servers.handler.js';
 import { getEmbeddedSourceMap } from '../../services/media-sources.js';
 
@@ -10,7 +11,7 @@ const TYPE_DUB = 'dub';
 /* =======================
    MAIN FUNCTION
 ======================= */
-export default async function streamExtract({ selectedServer, id }) {
+export default async function streamExtract({ selectedServer, id, episodeNumber }) {
   const embeddedSources = await getEmbeddedSourceMap();
 
   if (isEmbeddedStream(selectedServer, embeddedSources)) {
@@ -18,7 +19,14 @@ export default async function streamExtract({ selectedServer, id }) {
   }
 
   const stream = await megacloud({ selectedServer, id });
-  if (!hasFile(stream)) return stream;
+  if (!hasFile(stream)) {
+    const animekaiStream = await animekaiFallback({
+      id,
+      type: selectedServer.type,
+      episodeNumber,
+    });
+    return animekaiStream ?? buildPreferredEmbeddedFallback(selectedServer, id, embeddedSources) ?? stream;
+  }
 
   if (needsSubFallback(selectedServer, stream)) {
     await attachSubtitlesFromSub(stream, selectedServer, id);
@@ -51,8 +59,28 @@ const buildEmbeddedStream = (server, id, embeddedSources) => {
 
   return {
     streamingLink: END_URL,
-    servers: server.name,
+    servers: source.name || server.name,
+    server: source.key || server.name,
+    referer: source.refererUrl || `https://${source.domain}/`,
+    usedEmbeddedFallback: true,
   };
+};
+
+const buildPreferredEmbeddedFallback = (server, id, embeddedSources) => {
+  const preferred = embeddedSources.get(server.name.toLowerCase());
+  if (preferred?.streamBaseUrl) {
+    return buildEmbeddedStream({ ...server, name: preferred.key }, id, embeddedSources);
+  }
+
+  const primary = embeddedSources.get('megaplay');
+  if (primary?.streamBaseUrl) {
+    return buildEmbeddedStream({ ...server, name: primary.key }, id, embeddedSources);
+  }
+
+  const first = [...embeddedSources.values()].find((source) => source.streamBaseUrl);
+  if (!first) return null;
+
+  return buildEmbeddedStream({ ...server, name: first.key }, id, embeddedSources);
 };
 
 const getDefaultReferer = (embeddedSources) => {

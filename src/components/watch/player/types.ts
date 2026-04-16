@@ -6,6 +6,7 @@ export interface IntroOutro {
 export interface PlayerProps {
   url: string;
   referer?: string;
+  embedUrl?: string;
   subtitles?: {
     file: string;
     label: string;

@@ -42,52 +42,73 @@ export async function getKitsuThumbnails(animeTitle, episodes) {
 
     console.log(`[Kitsu] Found anime: ${anime.attributes.canonicalTitle} (ID: ${anime.id})`);
 
-    // Fetch episodes with thumbnails (paginated - get up to 20 at a time)
-    const episodeCount = episodes.length;
+    // Fetch episodes with thumbnails
     const thumbMap = new Map();
-    const pageSize = 20;
 
-    // Fetch episodes in parallel batches
-    const fetchPromises = [];
-    for (let offset = 0; offset < episodeCount; offset += pageSize) {
-      const episodesUrl = `${KITSU_API_URL}/anime/${anime.id}/episodes?page[limit]=${pageSize}&page[offset]=${offset}`;
-      console.log(`[Kitsu] Fetching episodes URL: ${episodesUrl}`);
-      fetchPromises.push(
-        fetch(episodesUrl, {
-          headers: {
-            'Accept': 'application/vnd.api+json',
-            'Content-Type': 'application/vnd.api+json',
-          },
-        }).then(async res => {
-          console.log(`[Kitsu] Episodes fetch status (offset ${offset}): ${res.status}`);
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error(`[Kitsu] Episodes API Error: ${res.status} - ${errorText}`);
-            return null;
+    if (episodes.length <= 5) {
+      // Optimization: Fetch only specific episodes using filter[number]
+      console.log(`[Kitsu] Using specific episode filters for ${episodes.length} episodes`);
+      const filterPromises = episodes.map(async (ep) => {
+        const episodesUrl = `${KITSU_API_URL}/anime/${anime.id}/episodes?filter[number]=${ep.episodeNumber}`;
+        try {
+          const res = await fetch(episodesUrl, {
+            headers: {
+              'Accept': 'application/vnd.api+json',
+              'Content-Type': 'application/vnd.api+json',
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const kitsuEp = data.data?.find(d => d.attributes.number === ep.episodeNumber);
+            if (kitsuEp?.attributes.thumbnail?.original) {
+              thumbMap.set(ep.episodeNumber, kitsuEp.attributes.thumbnail.original);
+            }
           }
-          return res.json();
-        }).catch(err => {
-          console.error(`[Kitsu] Episodes fetch error (offset ${offset}):`, err.message);
-          return null;
-        })
-      );
-    }
+        } catch (err) {
+          console.error(`[Kitsu] Error filtering for episode ${ep.episodeNumber}:`, err.message);
+        }
+      });
+      await Promise.all(filterPromises);
+    } else {
+      // Original paginated fetch (only useful for small-ish anime lists, e.g., 24 eps)
+      // For large lists like One Piece, even this is too many requests
+      const maxEpisodesToFetch = Math.min(episodes.length, 100); 
+      const pageSize = 20;
 
-    const results = await Promise.all(fetchPromises);
-    console.log(`[Kitsu] Fetched ${results.length} batches`);
+      const fetchPromises = [];
+      for (let offset = 0; offset < maxEpisodesToFetch; offset += pageSize) {
+        const episodesUrl = `${KITSU_API_URL}/anime/${anime.id}/episodes?page[limit]=${pageSize}&page[offset]=${offset}`;
+        console.log(`[Kitsu] Fetching episodes URL: ${episodesUrl}`);
+        fetchPromises.push(
+          fetch(episodesUrl, {
+            headers: {
+              'Accept': 'application/vnd.api+json',
+              'Content-Type': 'application/vnd.api+json',
+            },
+          }).then(async res => {
+            console.log(`[Kitsu] Episodes fetch status (offset ${offset}): ${res.status}`);
+            if (!res.ok) return null;
+            return res.json();
+          }).catch(err => {
+            console.error(`[Kitsu] Episodes fetch error (offset ${offset}):`, err.message);
+            return null;
+          })
+        );
+      }
 
-    for (const result of results) {
-      if (result?.data) {
-        console.log(`[Kitsu] Batch has ${result.data.length} episodes`);
-        for (const ep of result.data) {
-          const num = ep.attributes.number;
-          const thumb = ep.attributes.thumbnail?.original;
-          if (num && thumb) {
-            thumbMap.set(num, thumb);
+      const results = await Promise.all(fetchPromises);
+      console.log(`[Kitsu] Fetched ${results.length} batches`);
+
+      for (const result of results) {
+        if (result?.data) {
+          for (const ep of result.data) {
+            const num = ep.attributes.number;
+            const thumb = ep.attributes.thumbnail?.original;
+            if (num && thumb) {
+              thumbMap.set(num, thumb);
+            }
           }
         }
-      } else {
-        console.log(`[Kitsu] Batch returned null or no data`);
       }
     }
 

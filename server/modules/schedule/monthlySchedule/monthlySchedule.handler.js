@@ -1,5 +1,6 @@
 import { validationError } from '@/utils/errors';
 import config from '@/config/config';
+import { requestText } from '@/services/http-client.js';
 // import monthlyScheduleExtract from './monthlySchedule.extarct';
 import monthlyScheduleExtract from './monthlySchedule.extract';
 
@@ -41,7 +42,7 @@ export default async function monthyScheduleHandler(c) {
   };
 
   try {
-    const res = await fetch(config.baseurl + ajaxUrl, {
+    const { response: res, text: rawBody } = await requestText(config.baseurl + ajaxUrl, {
       headers: {
         ...config.headers,
         Referer: config.baseurl + '/home',
@@ -50,8 +51,6 @@ export default async function monthyScheduleHandler(c) {
     if (!res.ok) {
       return { meta, response: [] };
     }
-
-    const rawBody = await res.text();
 
     let htmlSnippet = '';
     try {

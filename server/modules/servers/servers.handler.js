@@ -1,4 +1,5 @@
 import config from '@/config/config';
+import { requestJson } from '@/services/http-client.js';
 import serversExtract from './servers.extract';
 import { NotFoundError } from '@/utils/errors';
 
@@ -17,7 +18,7 @@ export async function getServers(id) {
   const Referer = `/watch/${id.replace('::', '?')}`;
 
   try {
-    const res = await fetch(config.baseurl + ajaxUrl, {
+    const { response: res, data } = await requestJson(config.baseurl + ajaxUrl, {
       headers: {
         Referer: config.baseurl + Referer,
         ...config.headers,
@@ -27,8 +28,6 @@ export async function getServers(id) {
     if (!res.ok) {
       throw new Error(`Upstream API returned ${res.status} ${res.statusText}`);
     }
-
-    const data = await res.json();
     
     if (!data || !data.html) {
         throw new Error('Invalid response format from upstream API');

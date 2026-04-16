@@ -31,7 +31,12 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
   const prevCategory = useRef(category);
 
   // Debounced fetch for episode changes
-  const fetchEpisodeData = useCallback(async (episodeId: string, srv: string, cat: string) => {
+  const fetchEpisodeData = useCallback(async (
+    episodeId: string,
+    srv: string,
+    cat: string,
+    episodeNumber?: number
+  ) => {
     setLoading(true);
     setError(null);
     
@@ -49,7 +54,7 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
       await delay(300);
       
       // Then fetch source
-      const source = await getEpisodeSources(episodeId, srv, cat);
+      const source = await getEpisodeSources(episodeId, srv, cat, episodeNumber);
       if (!source) {
         setError('Stream unavailable. Try a different server.');
       }
@@ -69,7 +74,8 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
     }
     
     fetchTimeoutRef.current = setTimeout(() => {
-      fetchEpisodeData(currentEpisodeId, server, category);
+      const selectedEpisode = episodes.find((episode) => episode.episodeId === currentEpisodeId);
+      fetchEpisodeData(currentEpisodeId, server, category, selectedEpisode?.number);
     }, 200);
     
     return () => {
@@ -77,7 +83,9 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [currentEpisodeId, fetchEpisodeData]);
+  }, [currentEpisodeId, fetchEpisodeData, episodes]);
+
+  const currentEpisode = episodes.find(e => e.episodeId === currentEpisodeId);
 
   // Fetch source only when server/category changes (not on initial mount)
   useEffect(() => {
@@ -101,7 +109,7 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
       setLoading(true);
       setError(null);
       try {
-        const data = await getEpisodeSources(currentEpisodeId, server, category);
+        const data = await getEpisodeSources(currentEpisodeId, server, category, currentEpisode?.number);
         if (!data) {
           setError('Stream unavailable for this server.');
         }
@@ -115,9 +123,8 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
     };
     
     fetchSource();
-  }, [server, category, serversData, currentEpisodeId]);
+  }, [server, category, serversData, currentEpisodeId, currentEpisode?.number]);
 
-  const currentEpisode = episodes.find(e => e.episodeId === currentEpisodeId);
   const currentEpisodeIndex = episodes.findIndex(e => e.episodeId === currentEpisodeId);
   
   const getInitialProgressForEpisode = (epId: string): number => {
@@ -157,31 +164,47 @@ export function WatchContainer({ anime, episodes, initialEpisodeId }: WatchConta
           {error ? (
              <div className="w-full h-full flex items-center justify-center text-destructive bg-card flex-col gap-2 p-4">
                <p>{error}</p>
-               <Button variant="outline" size="sm" onClick={() => fetchEpisodeData(currentEpisodeId, server, category)}>
+               <Button variant="outline" size="sm" onClick={() => fetchEpisodeData(currentEpisodeId, server, category, currentEpisode?.number)}>
                  Retry
                </Button>
              </div>
-          ) : sourceData && sourceData.link ? (
-              <Player 
-                 key={currentEpisodeId}
-                 url={sourceData.link.file} 
-                 referer={sourceData.referer} 
-                 subtitles={sourceData.tracks}
-                 poster={anime.anime.info.poster}
-                 intro={sourceData.intro}
-                 outro={sourceData.outro}
-                 onPrevEpisode={handlePrevEpisode}
-                 onNextEpisode={handleNextEpisode}
-                 hasPrevEpisode={hasPrevEpisode}
-                 hasNextEpisode={hasNextEpisode}
-                 animeId={anime.anime.info.id}
-                 animeName={anime.anime.info.name}
-                 episodeId={currentEpisodeId}
-                 episodeNumber={currentEpisode?.number}
-                 episodeImage={currentEpisode?.image}
-                 genres={anime.anime.moreInfo.genres}
-                 initialProgress={initialProgress}
-              />
+          ) : sourceData && (sourceData.link || sourceData.streamingLink) ? (
+              sourceData.link ? (
+                <Player 
+                   key={currentEpisodeId}
+                   url={sourceData.link.file} 
+                   referer={sourceData.referer} 
+                   subtitles={sourceData.tracks}
+                   poster={anime.anime.info.poster}
+                   intro={sourceData.intro}
+                   outro={sourceData.outro}
+                   onPrevEpisode={handlePrevEpisode}
+                   onNextEpisode={handleNextEpisode}
+                   hasPrevEpisode={hasPrevEpisode}
+                   hasNextEpisode={hasNextEpisode}
+                   animeId={anime.anime.info.id}
+                   animeName={anime.anime.info.name}
+                   episodeId={currentEpisodeId}
+                   episodeNumber={currentEpisode?.number}
+                   episodeImage={currentEpisode?.image}
+                   genres={anime.anime.moreInfo.genres}
+                   initialProgress={initialProgress}
+                />
+              ) : (
+                <div className="relative w-full h-full bg-black">
+                  <iframe
+                    key={currentEpisodeId}
+                    src={sourceData.streamingLink}
+                    className="h-full w-full"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute left-3 top-3 rounded-md bg-black/70 px-3 py-1 text-xs text-white backdrop-blur">
+                    Embedded fallback player
+                  </div>
+                </div>
+              )
 
           ) : sourceData ? (
              <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-card">

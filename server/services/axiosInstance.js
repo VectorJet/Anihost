@@ -1,18 +1,19 @@
 import config from '../config/config.js';
+import { requestText } from './http-client.js';
 
 export const axiosInstance = async (endpoint) => {
   try {
-    const response = await fetch(config.baseurl + endpoint, {
+    const { response, text } = await requestText(config.baseurl + endpoint, {
       headers: {
         ...(config.headers || {}),
       },
     });
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.text();
 
     return {
       success: true,
-      data,
+      data: text,
     };
   } catch (error) {
     return {

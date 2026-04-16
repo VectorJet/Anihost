@@ -1,10 +1,16 @@
+import { fetch as undiciFetch, Headers, Request, Response } from 'undici';
 import app from './app.js';
 import { serve } from 'bun';
+
+globalThis.fetch = undiciFetch;
+globalThis.Headers = Headers;
+globalThis.Request = Request;
+globalThis.Response = Response;
 
 const port = process.env.INTERNAL_API_PORT || process.env.PORT || 4001;
 const bunApp = serve({
   port,
-  hostname: "0.0.0.0",
+  hostname: '0.0.0.0',
   fetch: app.fetch,
   idleTimeout: 20,
 });

@@ -1,5 +1,6 @@
 import { NotFoundError } from '@/utils/errors';
 import config from '@/config/config';
+import { requestJson } from '@/services/http-client.js';
 import charactersExtract from './characters.extract';
 
 export default async function charactersHandler(c) {
@@ -11,14 +12,14 @@ export default async function charactersHandler(c) {
   try {
     const Referer = `${config.baseurl}/home`;
 
-    const res = await fetch(config.baseurl + endpoint, {
+    const { response: res, data } = await requestJson(config.baseurl + endpoint, {
       headers: {
         ...config.headers,
         Referer,
       },
     });
 
-    const data = await res.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const response = charactersExtract(data.html);
 
     return response;

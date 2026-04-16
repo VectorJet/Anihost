@@ -23,6 +23,11 @@ const episodesSchema = createRoute({
         examples: someAnimes.ids,
       }),
     }),
+    query: z.object({
+      ep: z.string().optional().openapi({
+        example: '1',
+      }),
+    }),
   },
   responses: {
     200: {

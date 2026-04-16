@@ -12,8 +12,11 @@ const MAX_RETRIES = 2;
 const TIMEOUT = 15000;
 const KEY_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
-const KEY_URL =
-  'https://raw.githubusercontent.com/ryanwtf88/megacloud-keys/refs/heads/master/key.txt';
+const KEY_SOURCES = [
+  'https://raw.githubusercontent.com/itzrihan/megacloud-keys/main/key.txt',
+  'https://raw.githubusercontent.com/zuhaz/key-extractor/main/key.txt',
+  'https://raw.githubusercontent.com/superbillgalaxy/megacloud-keys/main/api.json',
+];
 
 /* =======================
    FETCH HELPERS (BUN)
@@ -24,7 +27,10 @@ const fetchJSON = async (url, { headers = {}, timeout = TIMEOUT } = {}) => {
 
   try {
     const res = await fetch(url, {
-      headers,
+      headers: {
+        ...(config.megacloudCookie ? { Cookie: config.megacloudCookie } : {}),
+        ...headers,
+      },
       signal: controller.signal,
     });
 
@@ -44,7 +50,10 @@ const fetchText = async (url, { headers = {}, timeout = TIMEOUT } = {}) => {
 
   try {
     const res = await fetch(url, {
-      headers,
+      headers: {
+        ...(config.megacloudCookie ? { Cookie: config.megacloudCookie } : {}),
+        ...headers,
+      },
       signal: controller.signal,
     });
 
@@ -226,17 +235,42 @@ const getDecryptionKey = async () => {
     return cachedKey;
   }
 
-  try {
-    const data = await fetchText(KEY_URL);
-    cachedKey = data.trim();
-    keyLastFetched = now;
-    return cachedKey;
-  } catch (err) {
-    console.error(err.message);
-    if (cachedKey) return cachedKey;
-    throw new Error('Key fetch failed');
+  const errors = [];
+
+  for (const url of KEY_SOURCES) {
+    try {
+      const data = await fetchText(url);
+      const key = parseKeyPayload(data);
+
+      if (!isValidKey(key)) {
+        throw new Error('Invalid key payload');
+      }
+
+      cachedKey = key;
+      keyLastFetched = now;
+      return cachedKey;
+    } catch (err) {
+      errors.push(`${url} -> ${err.message}`);
+    }
   }
+
+  console.error(errors.join('\n'));
+  if (cachedKey) return cachedKey;
+  throw new Error('Key fetch failed');
 };
+
+const parseKeyPayload = (payload) => {
+  const trimmed = payload.trim();
+
+  if (trimmed.startsWith('{')) {
+    const parsed = JSON.parse(trimmed);
+    return parsed?.megacloud?.trim?.() ?? null;
+  }
+
+  return trimmed;
+};
+
+const isValidKey = (key) => /^[a-f0-9]{64}$/i.test(key);
 
 /* =======================
    UTIL

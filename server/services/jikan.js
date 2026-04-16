@@ -41,7 +41,8 @@ export async function getJikanThumbnails(animeTitle, episodes) {
     const totalPages = Math.ceil(episodes.length / pageSize);
 
     // Jikan has rate limiting (3 req/sec), so fetch sequentially with small delay
-    for (let page = 1; page <= totalPages; page++) {
+    const maxPages = Math.min(totalPages, 3); // Let's limit Jikan to only 3 pages (120 episodes) to be safe
+    for (let page = 1; page <= maxPages; page++) {
       const videosUrl = `${JIKAN_API_URL}/anime/${malId}/videos/episodes?page=${page}`;
       console.log(`[Jikan] Fetching videos page ${page}: ${videosUrl}`);
 
